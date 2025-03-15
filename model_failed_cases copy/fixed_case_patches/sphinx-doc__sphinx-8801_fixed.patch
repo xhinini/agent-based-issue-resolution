@@ -1,0 +1,55 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 9e67bb6..18f695d 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -685,7 +685,7 @@ class Documenter:
+                     elif name in cls.__dict__:
+                         return False
+                     elif name in self.get_attr(cls, '__annotations__', {}):
+-                        return False
++                        return True
+                     elif isinstance(obj, ObjectMember) and obj.class_ is cls:
+                         return False
+ 
+@@ -758,7 +758,7 @@ class Documenter:
+                         keep = has_doc or self.options.undoc_members
+                 else:
+                     keep = False
+-            elif (namespace, membername) in attr_docs:
++            elif (namespace, membername) in attr_docs or membername in self.get_attr(self.object, '__annotations__', {}):
+                 if want_all and isprivate:
+                     if self.options.private_members is None:
+                         keep = False
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 9e67bb6..18f695d 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -685,7 +685,7 @@ class Documenter:
+                     elif name in cls.__dict__:
+                         return False
+                     elif name in self.get_attr(cls, '__annotations__', {}):
+-                        return False
++return True
+                     elif isinstance(obj, ObjectMember) and obj.class_ is cls:
+                         return False
+ 
+@@ -758,7 +758,7 @@ class Documenter:
+                         keep = has_doc or self.options.undoc_members
+                 else:
+                     keep = False
+-            elif (namespace, membername) in attr_docs:
++            elif (namespace, membername) in attr_docs or membername in self.get_attr(self.object, '__annotations__', {}):
+                 if want_all and isprivate:
+                     if self.options.private_members is None:
+                         keep = False
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+`Bar.attr1` is not documented. It will be shown if I give `:undoc-members:` option to the autoclass directive call. It seems the attribute is treated as undocumented.
+
+=== Test Verification Results ===
+Tests Passed: False

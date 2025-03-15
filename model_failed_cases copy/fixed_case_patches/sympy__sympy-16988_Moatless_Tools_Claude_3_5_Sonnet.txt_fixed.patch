@@ -1,0 +1,113 @@
+=== Original Patch ===
+diff --git a/sympy/sets/sets.py b/sympy/sets/sets.py
+index 03cf57a30b..e0d515b392 100644
+--- a/sympy/sets/sets.py
++++ b/sympy/sets/sets.py
+@@ -1262,6 +1262,14 @@ def __new__(cls, *args, **kwargs):
+         # flatten inputs to merge intersections and iterables
+         args = _sympify(args)
+ 
++        # Remove duplicates
++        args = list(dict.fromkeys(args))
++
++        if len(args) == 0:
++            return S.UniversalSet
++        if len(args) == 1:
++            return args[0]
++
+         # Reduce sets using known rules
+         if evaluate:
+             args = list(cls._new_args_filter(args))
+@@ -1294,11 +1302,15 @@ def _contains(self, other):
+         return And(*[set.contains(other) for set in self.args])
+ 
+     def __iter__(self):
++        args = list(ordered(set(self.args)))
++        if len(args) == 1:
++            yield from args[0]
++            return
+         no_iter = True
+-        for s in self.args:
++        for s in args:
+             if s.is_iterable:
+                 no_iter = False
+-                other_sets = set(self.args) - set((s,))
++                other_sets = set(args) - set((s,))
+                 other = Intersection(*other_sets, evaluate=False)
+                 for x in s:
+                     c = sympify(other.contains(x))
+@@ -1987,6 +1999,13 @@ def simplify_intersection(args):
+         if not isinstance(arg, Set):
+             raise TypeError("Input args to Union must be Sets")
+ 
++    # Remove duplicates
++    args = list(dict.fromkeys(args))
++
++    # If all arguments are the same after removing duplicates, return that argument
++    if len(args) == 1:
++        return args[0]
++
+     # If any EmptySets return EmptySet
+     if S.EmptySet in args:
+         return S.EmptySet
+
+=== Fixed Patch ===
+diff --git a/sympy/sets/sets.py b/sympy/sets/sets.py
+index 03cf57a30b..e0d515b392 100644
+--- a/sympy/sets/sets.py
++++ b/sympy/sets/sets.py
+@@ -1262,6 +1262,14 @@ def __new__(cls, *args, **kwargs):
+         # flatten inputs to merge intersections and iterables
+         args = _sympify(args)
+ 
++        # Remove duplicates
++args = list(dict.fromkeys(args))
++
++        if len(args) == 0:
++return S.UniversalSet
++        if len(args) == 1:
++return args[0]
++
+         # Reduce sets using known rules
+         if evaluate:
+             args = list(cls._new_args_filter(args))
+@@ -1294,11 +1302,15 @@ def _contains(self, other):
+         return And(*[set.contains(other) for set in self.args])
+ 
+     def __iter__(self):
++args = list(ordered(set(self.args)))
++        if len(args) == 1:
++yield from args[0]
++return
+         no_iter = True
+-        for s in self.args:
++        for s in args:
+             if s.is_iterable:
+                 no_iter = False
+-                other_sets = set(self.args) - set((s,))
++other_sets = set(args) - set((s,))
+                 other = Intersection(*other_sets, evaluate=False)
+                 for x in s:
+                     c = sympify(other.contains(x))
+@@ -1987,6 +1999,13 @@ def simplify_intersection(args):
+         if not isinstance(arg, Set):
+             raise TypeError("Input args to Union must be Sets")
+ 
++    # Remove duplicates
++args = list(dict.fromkeys(args))
++
++    # If all arguments are the same after removing duplicates, return that argument
++    if len(args) == 1:
++return args[0]
++
+     # If any EmptySets return EmptySet
+     if S.EmptySet in args:
+         return S.EmptySet
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

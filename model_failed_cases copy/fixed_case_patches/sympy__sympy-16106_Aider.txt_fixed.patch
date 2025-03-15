@@ -1,0 +1,248 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..49f23117cc 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -391,6 +391,35 @@ def translate(s):
+     _print_MatrixSymbol = _print_Symbol
+     _print_RandomSymbol = _print_Symbol
+ 
++    def _print_Indexed(self, expr):
++        mrow = self.dom.createElement('mrow')
++        base = self.dom.createElement('mi')
++        base.appendChild(self.dom.createTextNode(expr.base.name))
++        mrow.appendChild(base)
++        for index in expr.indices:
++            sub = self.dom.createElement('msub')
++            sub.appendChild(self._print(index))
++            mrow.appendChild(sub)
++        return mrow
++
++    def _print_IndexedBase(self, expr):
++        x = self.dom.createElement('mi')
++        x.appendChild(self.dom.createTextNode(expr.name))
++        return x
++
++    def _print_Indexed(self, expr):
++        x = self.dom.createElement('apply')
++        x.appendChild(self.dom.createElement('ci'))
++        x.appendChild(self._print(expr.base))
++        for index in expr.indices:
++            x.appendChild(self._print(index))
++        return x
++
++    def _print_IndexedBase(self, expr):
++        x = self.dom.createElement('ci')
++        x.appendChild(self.dom.createTextNode(expr.name))
++        return x
++
+     def _print_Pow(self, e):
+         # Here we use root instead of power if the exponent is the reciprocal of an integer
+         if self._settings['root_notation'] and e.exp.is_Rational and e.exp.p == 1:
+@@ -625,12 +654,19 @@ def _print_MatrixBase(self, m):
+                 y.appendChild(self._print(m[i, j]))
+                 x.appendChild(y)
+             table.appendChild(x)
+-        if self._settings["mat_delim"] == '':
+-            return table
+         brac = self.dom.createElement('mfenced')
+         if self._settings["mat_delim"] == "[":
+             brac.setAttribute('open', '[')
+             brac.setAttribute('close', ']')
++        elif self._settings["mat_delim"] == "(":
++            brac.setAttribute('open', '(')
++            brac.setAttribute('close', ')')
++        elif self._settings["mat_delim"] == "{":
++            brac.setAttribute('open', '{')
++            brac.setAttribute('close', '}')
++        elif self._settings["mat_delim"] == "|":
++            brac.setAttribute('open', '|')
++            brac.setAttribute('close', '|')
+         brac.appendChild(table)
+         return brac
+ 
+@@ -1028,23 +1064,17 @@ def _print_Tuple(self, e):
+     def _print_Interval(self, i):
+         mrow = self.dom.createElement('mrow')
+         brac = self.dom.createElement('mfenced')
+-        if i.start == i.end:
+-            # Most often, this type of Interval is converted to a FiniteSet
+-            brac.setAttribute('open', '{')
+-            brac.setAttribute('close', '}')
+-            brac.appendChild(self._print(i.start))
++        if i.left_open:
++            brac.setAttribute('open', '(')
+         else:
+-            if i.left_open:
+-                brac.setAttribute('open', '(')
+-            else:
+-                brac.setAttribute('open', '[')
++            brac.setAttribute('open', '[')
+ 
+-            if i.right_open:
+-                brac.setAttribute('close', ')')
+-            else:
+-                brac.setAttribute('close', ']')
+-            brac.appendChild( self._print(i.start))
+-            brac.appendChild( self._print(i.end))
++        if i.right_open:
++            brac.setAttribute('close', ')')
++        else:
++            brac.setAttribute('close', ']')
++        brac.appendChild(self._print(i.start))
++        brac.appendChild(self._print(i.end))
+ 
+         mrow.appendChild(brac)
+         return mrow
+@@ -1237,8 +1267,8 @@ def _print_EmptySet(self, e):
+     def _print_floor(self, e):
+         mrow =  self.dom.createElement('mrow')
+         x = self.dom.createElement('mfenced')
+-        x.setAttribute('open', u'\u230A')
+-        x.setAttribute('close', u'\u230B')
++        x.setAttribute('open', '&#8970;')
++        x.setAttribute('close', '&#8971;')
+         x.appendChild(self._print(e.args[0]))
+         mrow.appendChild(x)
+         return mrow
+@@ -1247,8 +1277,8 @@ def _print_floor(self, e):
+     def _print_ceiling(self, e):
+         mrow =  self.dom.createElement('mrow')
+         x = self.dom.createElement('mfenced')
+-        x.setAttribute('open', u'\u2308')
+-        x.setAttribute('close', u'\u2309')
++        x.setAttribute('open', '&#8968;')
++        x.setAttribute('close', '&#8969;')
+         x.appendChild(self._print(e.args[0]))
+         mrow.appendChild(x)
+         return mrow
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..49f23117cc 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -391,6 +391,35 @@ def translate(s):
+     _print_MatrixSymbol = _print_Symbol
+     _print_RandomSymbol = _print_Symbol
+ 
++    def _print_Indexed(self, expr):
++mrow = self.dom.createElement('mrow')
++base = self.dom.createElement('mi')
++base.appendChild(self.dom.createTextNode(expr.base.name))
++mrow.appendChild(base)
++        for index in expr.indices:
++sub = self.dom.createElement('msub')
++sub.appendChild(self._print(index))
++mrow.appendChild(sub)
++return mrow
++
++    def _print_IndexedBase(self, expr):
++x = self.dom.createElement('mi')
++x.appendChild(self.dom.createTextNode(expr.name))
++return x
++
++    def _print_Indexed(self, expr):
++x = self.dom.createElement('apply')
++x.appendChild(self.dom.createElement('ci'))
++x.appendChild(self._print(expr.base))
++        for index in expr.indices:
++x.appendChild(self._print(index))
++return x
++
++    def _print_IndexedBase(self, expr):
++x = self.dom.createElement('ci')
++x.appendChild(self.dom.createTextNode(expr.name))
++return x
++
+     def _print_Pow(self, e):
+         # Here we use root instead of power if the exponent is the reciprocal of an integer
+         if self._settings['root_notation'] and e.exp.is_Rational and e.exp.p == 1:
+@@ -625,12 +654,19 @@ def _print_MatrixBase(self, m):
+                 y.appendChild(self._print(m[i, j]))
+                 x.appendChild(y)
+             table.appendChild(x)
+-        if self._settings["mat_delim"] == '':
+-            return table
+         brac = self.dom.createElement('mfenced')
+         if self._settings["mat_delim"] == "[":
+             brac.setAttribute('open', '[')
+             brac.setAttribute('close', ']')
++        elif self._settings["mat_delim"] == "(":
++brac.setAttribute('open', '(')
++brac.setAttribute('close', ')')
++        elif self._settings["mat_delim"] == "{":
++brac.setAttribute('open', '{')
++brac.setAttribute('close', '}')
++        elif self._settings["mat_delim"] == "|":
++brac.setAttribute('open', '|')
++brac.setAttribute('close', '|')
+         brac.appendChild(table)
+         return brac
+ 
+@@ -1028,23 +1064,17 @@ def _print_Tuple(self, e):
+     def _print_Interval(self, i):
+         mrow = self.dom.createElement('mrow')
+         brac = self.dom.createElement('mfenced')
+-        if i.start == i.end:
+-            # Most often, this type of Interval is converted to a FiniteSet
+-            brac.setAttribute('open', '{')
+-            brac.setAttribute('close', '}')
+-            brac.appendChild(self._print(i.start))
++        if i.left_open:
++brac.setAttribute('open', '(')
+         else:
+-            if i.left_open:
+-                brac.setAttribute('open', '(')
+-            else:
+-                brac.setAttribute('open', '[')
++brac.setAttribute('open', '[')
+ 
+-            if i.right_open:
+-                brac.setAttribute('close', ')')
+-            else:
+-                brac.setAttribute('close', ']')
+-            brac.appendChild( self._print(i.start))
+-            brac.appendChild( self._print(i.end))
++        if i.right_open:
++brac.setAttribute('close', ')')
++        else:
++brac.setAttribute('close', ']')
++brac.appendChild(self._print(i.start))
++brac.appendChild(self._print(i.end))
+ 
+         mrow.appendChild(brac)
+         return mrow
+@@ -1237,8 +1267,8 @@ def _print_EmptySet(self, e):
+     def _print_floor(self, e):
+         mrow =  self.dom.createElement('mrow')
+         x = self.dom.createElement('mfenced')
+-        x.setAttribute('open', u'\u230A')
+-        x.setAttribute('close', u'\u230B')
++x.setAttribute('open', '&#8970;')
++x.setAttribute('close', '&#8971;')
+         x.appendChild(self._print(e.args[0]))
+         mrow.appendChild(x)
+         return mrow
+@@ -1247,8 +1277,8 @@ def _print_floor(self, e):
+     def _print_ceiling(self, e):
+         mrow =  self.dom.createElement('mrow')
+         x = self.dom.createElement('mfenced')
+-        x.setAttribute('open', u'\u2308')
+-        x.setAttribute('close', u'\u2309')
++x.setAttribute('open', '&#8968;')
++x.setAttribute('close', '&#8969;')
+         x.appendChild(self._print(e.args[0]))
+         mrow.appendChild(x)
+         return mrow
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Writing an `Indexed` object to MathML fails with a `TypeError` exception: `TypeError: 'Indexed' object is not iterable`:
+TypeError                                 Traceback (most recent call last)
+TypeError: 'Indexed' object is not iterable
+It also fails for more complex expressions where at least one element is Indexed.
+
+=== Test Verification Results ===
+Tests Passed: False

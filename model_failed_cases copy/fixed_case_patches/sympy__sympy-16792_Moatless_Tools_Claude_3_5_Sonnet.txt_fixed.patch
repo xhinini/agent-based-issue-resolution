@@ -1,0 +1,62 @@
+=== Original Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index bd6afb12d1..ba512027b9 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -80,6 +80,7 @@
+ from sympy.core.function import Lambda
+ from sympy.core.relational import Eq
+ from sympy.core.symbol import Dummy, Symbol
++from sympy.matrices.expressions import MatrixSymbol
+ from sympy.tensor.indexed import Idx, IndexedBase
+ from sympy.utilities.codegen import (make_routine, get_code_generator,
+                                      OutputArgument, InOutArgument,
+@@ -645,6 +646,12 @@ def autowrap(expr, language=None, backend='f2py', tempdir=None, args=None,
+             new_args.append(missing.name)
+         routine = code_gen.routine('autofunc', expr, args + new_args)
+ 
++    # Ensure all arguments are properly handled, even if they don't appear in the expression
++    for arg in args:
++        if isinstance(arg, (MatrixSymbol, IndexedBase)):
++            routine.arguments = [InputArgument(arg, dimensions=arg.shape) if a.name == arg.name else a for a in routine.arguments]
++        elif isinstance(arg, Symbol):
++            routine.arguments = [InputArgument(arg) if a.name == arg.name else a for a in routine.arguments]
+     return code_wrapper.wrap_code(routine, helpers=helps)
+
+=== Fixed Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index bd6afb12d1..ba512027b9 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -80,6 +80,7 @@
+ from sympy.core.function import Lambda
+ from sympy.core.relational import Eq
+ from sympy.core.symbol import Dummy, Symbol
++from sympy.matrices.expressions import MatrixSymbol
+ from sympy.tensor.indexed import Idx, IndexedBase
+ from sympy.utilities.codegen import (make_routine, get_code_generator,
+                                      OutputArgument, InOutArgument,
+@@ -645,6 +646,12 @@ def autowrap(expr, language=None, backend='f2py', tempdir=None, args=None,
+             new_args.append(missing.name)
+         routine = code_gen.routine('autofunc', expr, args + new_args)
+ 
++    # Ensure all arguments are properly handled, even if they don't appear in the expression
++    for arg in args:
++        if isinstance(arg, (MatrixSymbol, IndexedBase)):
++routine.arguments = [InputArgument(arg, dimensions=arg.shape) if a.name == arg.name else a for a in routine.arguments]
++        elif isinstance(arg, Symbol):
++routine.arguments = [InputArgument(arg) if a.name == arg.name else a for a in routine.arguments]
+     return code_wrapper.wrap_code(routine, helpers=helps)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+autowrap with cython backend fails when array arguments do not appear in wrapped expr
+This should of course return `1.0` but instead fails with:
+TypeError: only size-1 arrays can be converted to Python scalars
+A little inspection reveals that this is because the corresponding C function is generated with an incorrect signature:
+I've found that this error won't occur so long as `expr` depends at least in part on each argument. For example this slight modification of the above counterexample works perfectly:
+# returns 1.0 as expected, without failure
+
+=== Test Verification Results ===
+Tests Passed: False

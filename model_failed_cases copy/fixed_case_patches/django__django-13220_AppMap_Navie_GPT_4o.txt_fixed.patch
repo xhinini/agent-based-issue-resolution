@@ -1,0 +1,57 @@
+=== Original Patch ===
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..33ecda3207 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,15 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return False
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            return sorted(self.message_dict.items()) == sorted(other.message_dict.items())
++        if hasattr(self, 'error_list') and hasattr(other, 'error_list'):
++            return set(self.messages) == set(other.messages)
++        return False
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+
+=== Fixed Patch ===
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..33ecda3207 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,15 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++return False
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++return sorted(self.message_dict.items()) == sorted(other.message_dict.items())
++        if hasattr(self, 'error_list') and hasattr(other, 'error_list'):
++return set(self.messages) == set(other.messages)
++return False
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+TypeError: unhashable type: 'ValidationError' ====================================================================== ERROR: test_hash_nested (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+TypeError: unhashable type: 'ValidationError' ====================================================================== FAIL: test_eq (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+AssertionError: ValidationError(['message']) == ValidationError(['message']) ====================================================================== FAIL: test_eq_nested (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+AssertionError: ValidationError({'field1': ['error val1 val2'], 'field2': ['other']}) == ValidationError({'field1': ['error val1 val2'], 'field2': ['other']}) ---------------------------------------------------------------------- Ran 5 tests in 0.001s FAILED (failures=2, errors=2) + git checkout 16218c20606d8cd89c5393970c83da04598a3e04 tests/test_exceptions/test_validation_error.py Updated 1 path from c1b968f621
+Allow ValidationErrors to equal each other when created identically
+Currently ValidationErrors (django.core.exceptions.ValidationError) that have identical messages don't equal each other, which is counter-intuitive, and can make certain kinds of testing more complicated. Please add an __eq__ method that allows two ValidationErrors to be compared.
+Ideally, this would be more than just a simple self.messages == other.messages. It would be most helpful if the comparison were independent of the order in which errors were raised in a field or in non_field_errors.
+
+=== Test Verification Results ===
+Tests Passed: False

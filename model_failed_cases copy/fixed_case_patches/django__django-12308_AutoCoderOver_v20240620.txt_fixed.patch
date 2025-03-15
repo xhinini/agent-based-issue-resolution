@@ -1,0 +1,58 @@
+=== Original Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..640614ce0b 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -377,6 +377,8 @@ def help_text_for_field(name, model):
+     return help_text
+ 
+ 
++from django.db.models import JSONField  # Ensure this import is added
++
+ def display_for_field(value, field, empty_value_display):
+     from django.contrib.admin.templatetags.admin_list import _boolean_icon
+ 
+@@ -398,6 +400,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, JSONField):
++        return field.prepare_value(value)
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Fixed Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..640614ce0b 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -377,6 +377,8 @@ def help_text_for_field(name, model):
+     return help_text
+ 
+ 
++from django.db.models import JSONField
++
+ def display_for_field(value, field, empty_value_display):
+     from django.contrib.admin.templatetags.admin_list import _boolean_icon
+ 
+@@ -398,6 +400,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, JSONField):
++return getattr(field, 'prepare_value', False)(value)
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Applied Patterns ===
+  getattr(field, "prepare_value", False): 0.0% success rate
+
+=== Original Error Messages ===
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value=['a', 'b']) ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value='a') ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value={('a', 'b'): 'c'}) ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ---------------------------------------------------------------------- Ran 22 tests in 0.055s FAILED (errors=4) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application admin_utils Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: admin_utils, auth, contenttypes, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Creating table admin_utils_site Creating table admin_utils_article Creating table admin_utils_count Creating table admin_utils_event Creating table admin_utils_location Creating table admin_utils_guest Creating table admin_utils_eventguide Creating table admin_utils_vehicle Creating table admin_utils_car Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout 2e0f04507b17362239ba49830d26fec504d46978 tests/admin_utils/tests.py Updated 1 path from be0eb0e2d4
+I believe the fix would be to add a special case in django.contrib.admin.utils.display_for_field to call the prepare_value of the JSONField (not calling json.dumps directly to take care of the InvalidJSONInput case).
+
+=== Test Verification Results ===
+Tests Passed: False

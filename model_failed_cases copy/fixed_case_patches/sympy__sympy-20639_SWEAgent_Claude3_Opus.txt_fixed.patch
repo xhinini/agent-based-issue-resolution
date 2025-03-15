@@ -1,0 +1,45 @@
+=== Original Patch ===
+diff --git a/sympy/printing/pretty/pretty.py b/sympy/printing/pretty/pretty.py
+index df7452ee87..f52ecb0a70 100644
+--- a/sympy/printing/pretty/pretty.py
++++ b/sympy/printing/pretty/pretty.py
+@@ -1920,9 +1920,10 @@ def _print_nth_root(self, base, expt):
+             exp = str(expt.q)
+             if exp == '2':
+                 exp = ''
+-        else:
++        elif isinstance(expt, Pow):
+             exp = str(expt.args[0])
+-        exp = exp.ljust(2)
++        else:
++            exp = str(expt)
+         if len(exp) > 2:
+             rootsign = ' '*(len(exp) - 2) + rootsign
+         # Stack the exponent
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/pretty/pretty.py b/sympy/printing/pretty/pretty.py
+index df7452ee87..f52ecb0a70 100644
+--- a/sympy/printing/pretty/pretty.py
++++ b/sympy/printing/pretty/pretty.py
+@@ -1920,9 +1920,10 @@ def _print_nth_root(self, base, expt):
+             exp = str(expt.q)
+             if exp == '2':
+                 exp = ''
+-        else:
++        elif isinstance(expt, Pow):
+             exp = str(expt.args[0])
+-        exp = exp.ljust(2)
++        else:
++exp = str(expt)
+         if len(exp) > 2:
+             rootsign = ' '*(len(exp) - 2) + rootsign
+         # Stack the exponent
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

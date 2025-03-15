@@ -1,0 +1,156 @@
+=== Original Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index a0eb97792e..a192218d74 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -1429,13 +1429,64 @@ def _print_MatrixBase(self, expr):
+             out_str = r'\left' + left_delim + out_str + \
+                       r'\right' + right_delim
+         return out_str % r"\\".join(lines)
++
++        return r"\operatorname{Trace}\left(%s\right)" % self._print(expr.arg)
++        lines = []
++
++        for line in range(expr.rows):  # horrible, should be 'rows'
++            lines.append(" & ".join([ self._print(i) for i in expr[line, :] ]))
++
++        mat_str = self._settings['mat_str']
++        if mat_str is None:
++            if self._settings['mode'] == 'inline':
++                mat_str = 'smallmatrix'
++            else:
++                if (expr.cols <= 10) is True:
++                    mat_str = 'matrix'
++                else:
++                    mat_str = 'array'
++
++        out_str = r'\begin{%MATSTR%}%s\end{%MATSTR%}'
++        out_str = out_str.replace('%MATSTR%', mat_str)
++        if mat_str == 'array':
++            out_str = out_str.replace('%s', '{' + 'c'*expr.cols + '}%s')
++        if self._settings['mat_delim']:
++            left_delim = self._settings['mat_delim']
++            right_delim = self._delim_dict[left_delim]
++            out_str = r'\left' + left_delim + out_str + \
++                      r'\right' + right_delim
++        return out_str % r"\\".join(lines)
+     _print_ImmutableMatrix = _print_ImmutableDenseMatrix \
+                            = _print_Matrix \
+                            = _print_MatrixBase
+ 
+-    def _print_MatrixElement(self, expr):
+-        return self.parenthesize(expr.parent, PRECEDENCE["Atom"], strict=True) \
+-            + '_{%s, %s}' % (expr.i, expr.j)
++    def _print_MatrixBase(self, expr):
++        lines = []
++
++        for line in range(expr.rows):  # horrible, should be 'rows'
++            lines.append(" & ".join([ self._print(i) for i in expr[line, :] ]))
++
++        mat_str = self._settings['mat_str']
++        if mat_str is None:
++            if self._settings['mode'] == 'inline':
++                mat_str = 'smallmatrix'
++            else:
++                if (expr.cols <= 10) is True:
++                    mat_str = 'matrix'
++                else:
++                    mat_str = 'array'
++
++        out_str = r'\begin{%MATSTR%}%s\end{%MATSTR%}'
++        out_str = out_str.replace('%MATSTR%', mat_str)
++        if mat_str == 'array':
++            out_str = out_str.replace('%s', '{' + 'c'*expr.cols + '}%s')
++        if self._settings['mat_delim']:
++            left_delim = self._settings['mat_delim']
++            right_delim = self._delim_dict[left_delim]
++            out_str = r'\left' + left_delim + out_str + \
++                      r'\right' + right_delim
++        return out_str % r"\\".join(lines)
++        return r"%s_{%s, %s}" % (self._print(expr.parent), self._print(expr.i), self._print(expr.j))
+ 
+     def _print_MatrixSlice(self, expr):
+         def latexslice(x):
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index a0eb97792e..a192218d74 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -1429,13 +1429,64 @@ def _print_MatrixBase(self, expr):
+             out_str = r'\left' + left_delim + out_str + \
+                       r'\right' + right_delim
+         return out_str % r"\\".join(lines)
++
++return '\\operatorname{Trace}\\left(%s\\right)' % self._print(expr.arg)
++lines = []
++
++        for line in range(expr.rows):  # horrible, should be 'rows'
++lines.append(' & '.join([self._print(i) for i in expr[line, :]]))
++
++mat_str = self._settings['mat_str']
++        if mat_str is None:
++            if self._settings['mode'] == 'inline':
++mat_str = 'smallmatrix'
++            else:
++                if (expr.cols <= 10) is True:
++mat_str = 'matrix'
++                else:
++mat_str = 'array'
++
++out_str = '\\begin{%MATSTR%}%s\\end{%MATSTR%}'
++out_str = out_str.replace('%MATSTR%', mat_str)
++        if mat_str == 'array':
++out_str = out_str.replace('%s', '{' + 'c' * expr.cols + '}%s')
++        if self._settings['mat_delim']:
++left_delim = self._settings['mat_delim']
++right_delim = self._delim_dict[left_delim]
++            out_str = r'\left' + left_delim + out_str + \
++'\\right' + right_delim
++return out_str % '\\\\'.join(lines)
+     _print_ImmutableMatrix = _print_ImmutableDenseMatrix \
+                            = _print_Matrix \
+                            = _print_MatrixBase
+ 
+-    def _print_MatrixElement(self, expr):
+-        return self.parenthesize(expr.parent, PRECEDENCE["Atom"], strict=True) \
+-            + '_{%s, %s}' % (expr.i, expr.j)
++    def _print_MatrixBase(self, expr):
++lines = []
++
++        for line in range(expr.rows):  # horrible, should be 'rows'
++lines.append(' & '.join([self._print(i) for i in expr[line, :]]))
++
++mat_str = self._settings['mat_str']
++        if mat_str is None:
++            if self._settings['mode'] == 'inline':
++mat_str = 'smallmatrix'
++            else:
++                if (expr.cols <= 10) is True:
++mat_str = 'matrix'
++                else:
++mat_str = 'array'
++
++out_str = '\\begin{%MATSTR%}%s\\end{%MATSTR%}'
++out_str = out_str.replace('%MATSTR%', mat_str)
++        if mat_str == 'array':
++out_str = out_str.replace('%s', '{' + 'c' * expr.cols + '}%s')
++        if self._settings['mat_delim']:
++left_delim = self._settings['mat_delim']
++right_delim = self._delim_dict[left_delim]
++            out_str = r'\left' + left_delim + out_str + \
++'\\right' + right_delim
++return out_str % '\\\\'.join(lines)
++return '%s_{%s, %s}' % (self._print(expr.parent), self._print(expr.i), self._print(expr.j))
+ 
+     def _print_MatrixSlice(self, expr):
+         def latexslice(x):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ _____________ sympy/printing/tests/test_latex.py:test_issue_13559 ______________
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ ________ sympy/printing/tests/test_latex.py:test_MatrixElement_printing ________
+
+=== Test Verification Results ===
+Tests Passed: False

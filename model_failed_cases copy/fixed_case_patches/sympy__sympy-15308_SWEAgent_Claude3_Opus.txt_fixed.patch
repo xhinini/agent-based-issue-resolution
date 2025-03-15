@@ -1,0 +1,38 @@
+=== Original Patch ===
+diff --git a/sympy/printing/tests/test_latex.py b/sympy/printing/tests/test_latex.py
+index 9f644f15ee..3fba934419 100644
+--- a/sympy/printing/tests/test_latex.py
++++ b/sympy/printing/tests/test_latex.py
+@@ -1392,7 +1392,7 @@ def test_Tr():
+     #TODO: Handle indices
+     A, B = symbols('A B', commutative=False)
+     t = Tr(A*B)
+-    assert latex(t) == r'\mbox{Tr}\left(A B\right)'
++    assert latex(Tr(A**2)) == r'\mbox{Tr}\left(A^{2}\right)'
+ 
+ 
+ def test_Adjoint():
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/tests/test_latex.py b/sympy/printing/tests/test_latex.py
+index 9f644f15ee..3fba934419 100644
+--- a/sympy/printing/tests/test_latex.py
++++ b/sympy/printing/tests/test_latex.py
+@@ -1392,7 +1392,7 @@ def test_Tr():
+     #TODO: Handle indices
+     A, B = symbols('A B', commutative=False)
+     t = Tr(A*B)
+-    assert latex(t) == r'\mbox{Tr}\left(A B\right)'
++assert latex(Tr(A ** 2)) == '\\mbox{Tr}\\left(A^{2}\\right)'
+ 
+ 
+ def test_Adjoint():
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ _____________ sympy/printing/tests/test_latex.py:test_issue_13559 ______________
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ ________________ sympy/printing/tests/test_latex.py:test_trace _________________
+
+=== Test Verification Results ===
+Tests Passed: False

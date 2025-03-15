@@ -1,0 +1,59 @@
+=== Original Patch ===
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..cb214be701 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -181,7 +181,15 @@ class ValidationError(Exception):
+ 
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+-
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++        return (
++            self.message == other.message and
++            self.code == other.code and
++            self.params == other.params and
++            str(self.error_list) == str(other.error_list)
++        )
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+
+=== Fixed Patch ===
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..cb214be701 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -181,7 +181,15 @@ class ValidationError(Exception):
+ 
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+-
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++return NotImplemented
++        return (
++            self.message == other.message and
++            self.code == other.code and
++            self.params == other.params and
++str(self.error_list) == str(other.error_list)
++        )
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AttributeError: 'ValidationError' object has no attribute 'message' ====================================================================== ERROR: test_eq_nested (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+AttributeError: 'ValidationError' object has no attribute 'message' ====================================================================== ERROR: test_hash (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+TypeError: unhashable type: 'ValidationError' ====================================================================== ERROR: test_hash_nested (test_exceptions.test_validation_error.TestValidationError) ----------------------------------------------------------------------
+TypeError: unhashable type: 'ValidationError' ---------------------------------------------------------------------- Ran 5 tests in 0.001s FAILED (errors=4) Testing against Django installed in '/testbed/django' Importing application test_exceptions Skipping setup of unused database(s): default, other. System check identified no issues (0 silenced). + git checkout 16218c20606d8cd89c5393970c83da04598a3e04 tests/test_exceptions/test_validation_error.py Updated 1 path from c1b968f621
+Allow ValidationErrors to equal each other when created identically
+Currently ValidationErrors (django.core.exceptions.ValidationError) that have identical messages don't equal each other, which is counter-intuitive, and can make certain kinds of testing more complicated. Please add an __eq__ method that allows two ValidationErrors to be compared.
+Ideally, this would be more than just a simple self.messages == other.messages. It would be most helpful if the comparison were independent of the order in which errors were raised in a field or in non_field_errors.
+
+=== Test Verification Results ===
+Tests Passed: False

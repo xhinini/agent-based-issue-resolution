@@ -1,0 +1,90 @@
+=== Original Patch ===
+diff --git a/reproduce.py b/reproduce.py
+new file mode 100644
+index 000000000..746a86b20
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,13 @@
++import pandas as pd
++import pytest
++from sklearn.utils.multiclass import unique_labels, type_of_target
++
++for dtype in ["Int64", "Float64", "boolean"]:
++    print(f"Checking dtype: {dtype}")
++    y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
++    y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype="int64")
++    print(f"y_true type: {type_of_target(y_true)}")
++    print(f"y_predicted type: {type_of_target(y_predicted)}")
++    
++    with pytest.raises(ValueError, match="Mix type of y not allowed, got types {'binary', 'unknown'}"):
++        unique_labels(y_true, y_predicted)
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..416b68353 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -2,7 +2,15 @@
+ #
+ # License: BSD 3 clause
+ """
+-Multi-class / multi-label utility function
++for dtype in ["Int64", "Float64", "boolean"]:
++    print(f"Checking dtype: {dtype}")
++    y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
++    y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype="int64")
++    print(f"y_true type: {type_of_target(y_true)}")
++    print(f"y_predicted type: {type_of_target(y_predicted)}")
++    
++    with pytest.raises(ValueError, match="Mix type of y not allowed, got types {'binary', 'unknown'}"):
++        unique_labels(y_true, y_predicted)
+ ==========================================
+ 
+ """
+
+=== Fixed Patch ===
+diff --git a/reproduce.py b/reproduce.py
+index 000000000..746a86b20
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,13 @@
++import pandas as pd
++import pytest
++from sklearn.utils.multiclass import unique_labels, type_of_target
++
++for dtype in ["Int64", "Float64", "boolean"]:
++print(f'Checking dtype: {dtype}')
++y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
++y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype='int64')
++print(f'y_true type: {type_of_target(y_true)}')
++print(f'y_predicted type: {type_of_target(y_predicted)}')
++    
++    with pytest.raises(ValueError, match="Mix type of y not allowed, got types {'binary', 'unknown'}"):
++unique_labels(y_true, y_predicted)
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..416b68353 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -2,7 +2,15 @@
+ #
+ # License: BSD 3 clause
+ """
+-Multi-class / multi-label utility function
++for dtype in ["Int64", "Float64", "boolean"]:
++print(f'Checking dtype: {dtype}')
++y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
++y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype='int64')
++print(f'y_true type: {type_of_target(y_true)}')
++print(f'y_predicted type: {type_of_target(y_predicted)}')
++    
++    with pytest.raises(ValueError, match="Mix type of y not allowed, got types {'binary', 'unknown'}"):
++unique_labels(y_true, y_predicted)
+ ==========================================
+ 
+ """
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Support nullable pandas dtypes in `unique_labels`
+
+=== Test Verification Results ===
+Tests Passed: False

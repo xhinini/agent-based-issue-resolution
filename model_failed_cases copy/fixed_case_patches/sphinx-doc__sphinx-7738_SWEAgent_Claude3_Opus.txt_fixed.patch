@@ -1,0 +1,98 @@
+=== Original Patch ===
+diff --git a/docs/__init__.py b/docs/__init__.py
+new file mode 100644
+index 000000000..e69de29bb
+diff --git a/docs/a.py b/docs/a.py
+new file mode 100644
+index 000000000..6c26651d6
+--- /dev/null
++++ b/docs/a.py
+@@ -0,0 +1,8 @@
++class A:
++    """
++    Attributes
++    ----------
++    hello_: int
++        hi
++    """
++    pass
+diff --git a/docs/source/conf.py b/docs/source/conf.py
+new file mode 100644
+index 000000000..3fead9a6c
+--- /dev/null
++++ b/docs/source/conf.py
+@@ -0,0 +1,11 @@
++# Configuration file for the Sphinx documentation builder.
++
++# -- Project information -----------------------------------------------------
++project = 'Test Project'
++copyright = '2023, Author'
++author = 'Author'
++
++# -- General configuration ---------------------------------------------------
++
++# -- Options for HTML output -------------------------------------------------
++html_theme = 'alabaster'
+diff --git a/docs/source/index.rst b/docs/source/index.rst
+new file mode 100644
+index 000000000..fc8ca9584
+--- /dev/null
++++ b/docs/source/index.rst
+@@ -0,0 +1,4 @@
++Welcome to Test Project's documentation!
++========================================
++
++.. autoclass:: a.A
+
+=== Fixed Patch ===
+diff --git a/docs/__init__.py b/docs/__init__.py
+index 000000000..e69de29bb
+diff --git a/docs/a.py b/docs/a.py
+index 000000000..6c26651d6
+--- /dev/null
++++ b/docs/a.py
+@@ -0,0 +1,8 @@
++class A:
++    """
++Attributes
++    ----------
++hello_: int
++hi
++    """
++pass
+diff --git a/docs/source/conf.py b/docs/source/conf.py
+index 000000000..3fead9a6c
+--- /dev/null
++++ b/docs/source/conf.py
+@@ -0,0 +1,11 @@
++# Configuration file for the Sphinx documentation builder.
++
++# -- Project information -----------------------------------------------------
++project = 'Test Project'
++copyright = '2023, Author'
++author = 'Author'
++
++# -- General configuration ---------------------------------------------------
++
++# -- Options for HTML output -------------------------------------------------
++html_theme = 'alabaster'
+diff --git a/docs/source/index.rst b/docs/source/index.rst
+index 000000000..fc8ca9584
+--- /dev/null
++++ b/docs/source/index.rst
+@@ -0,0 +1,4 @@
++Welcome to Test Project's documentation!
++========================================
++
++.. autoclass:: a.A
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+overescaped trailing underscore on attribute with napoleon
+Attribute name `hello_` shows up as `hello\_` in the html (visible backslash) with napoleon.
+Attributes
+.. attribute:: hello_
+
+=== Test Verification Results ===
+Tests Passed: False

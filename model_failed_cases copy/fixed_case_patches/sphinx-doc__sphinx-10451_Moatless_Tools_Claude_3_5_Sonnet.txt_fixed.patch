@@ -1,0 +1,59 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py
+index d912cd7d5..d070b8282 100644
+--- a/sphinx/ext/autodoc/typehints.py
++++ b/sphinx/ext/autodoc/typehints.py
+@@ -118,12 +118,18 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str],
+         arg = arguments.get(name, {})
+         if not arg.get('type'):
+             field = nodes.field()
+-            field += nodes.field_name('', 'type ' + name)
++            field_name = 'type ' + name
++            if name.startswith('*'):
++                field_name = 'type' + name
++            field += nodes.field_name('', field_name)
+             field += nodes.field_body('', nodes.paragraph('', annotation))
+             node += field
+         if not arg.get('param'):
+             field = nodes.field()
+-            field += nodes.field_name('', 'param ' + name)
++            field_name = 'param ' + name
++            if name.startswith('*'):
++                field_name = 'param' + name
++            field += nodes.field_name('', field_name)
+             field += nodes.field_body('', nodes.paragraph('', ''))
+             node += field
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py
+index d912cd7d5..d070b8282 100644
+--- a/sphinx/ext/autodoc/typehints.py
++++ b/sphinx/ext/autodoc/typehints.py
+@@ -118,12 +118,18 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str],
+         arg = arguments.get(name, {})
+         if not arg.get('type'):
+             field = nodes.field()
+-            field += nodes.field_name('', 'type ' + name)
++field_name = 'type ' + name
++            if name.startswith('*'):
++field_name = 'type' + name
++field += nodes.field_name('', field_name)
+             field += nodes.field_body('', nodes.paragraph('', annotation))
+             node += field
+         if not arg.get('param'):
+             field = nodes.field()
+-            field += nodes.field_name('', 'param ' + name)
++field_name = 'param ' + name
++            if name.startswith('*'):
++field_name = 'param' + name
++field += nodes.field_name('', field_name)
+             field += nodes.field_body('', nodes.paragraph('', ''))
+             node += field
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

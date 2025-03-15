@@ -1,0 +1,66 @@
+=== Original Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..1a80c19bed 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -280,6 +280,22 @@ class Field(RegisterLookupMixin):
+             if isinstance(choices_group, str):
+                 break
+         else:
++            # Check max_length is sufficient for choices
++            if self.max_length is not None:
++                choices_max_length = 0
++                for value, _ in self.flatchoices:
++                    if isinstance(value, str):
++                        choices_max_length = max(choices_max_length, len(value))
++                if choices_max_length > self.max_length:
++                    return [
++                        checks.Error(
++                            "'max_length' is too small to fit the longest value "
++                            "in 'choices'. Set 'max_length' to at least %d." % choices_max_length,
++                            obj=self,
++                            id='fields.E006',
++                        )
++                    ]
++
+             return []
+ 
+         return [
+
+=== Fixed Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..1a80c19bed 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -280,6 +280,22 @@ class Field(RegisterLookupMixin):
+             if isinstance(choices_group, str):
+                 break
+         else:
++            # Check max_length is sufficient for choices
++            if self.max_length is not None:
++choices_max_length = 0
++                for value, _ in self.flatchoices:
++                    if isinstance(value, str):
++choices_max_length = max(choices_max_length, len(value))
++                if choices_max_length > self.max_length:
++                    return [
++                        checks.Error(
++"'max_length' is too small to fit the longest value "
++("in 'choices'. Set 'max_length' to at least %d." % choices_max_length,)
++obj = (self,)
++id = ('fields.E006',)
++                        )
++                    ]
++
+             return []
+ 
+         return [
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: Lists differ: [<Err[77 chars]ices'. Set 'max_length' to at least 3.", hint=[67 chars]06'>] != [<Err[77 chars]ices' (3 characters).", hint=None, obj=<django[50 chars]09'>] First differing element 0: <Erro[76 chars]ices'. Set 'max_length' to at least 3.", hint=[66 chars]006'> <Erro[76 chars]ices' (3 characters).", hint=None, obj=<django[49 chars]009'> Diff is 774 characters long. Set self.maxDiff to None to see it. ====================================================================== FAIL: test_choices_in_max_length (invalid_models_tests.test_ordinary_fields.CharFieldTests) [group] ----------------------------------------------------------------------
+AssertionError: Lists differ: [<Err[77 chars]ices'. Set 'max_length' to at least 6.", hint=[67 chars]06'>] != [<Err[77 chars]ices' (6 characters).", hint=None, obj=<django[50 chars]09'>] First differing element 0: <Erro[76 chars]ices'. Set 'max_length' to at least 6.", hint=[66 chars]006'> <Erro[76 chars]ices' (6 characters).", hint=None, obj=<django[49 chars]009'> Diff is 774 characters long. Set self.maxDiff to None to see it. ---------------------------------------------------------------------- Ran 47 tests in 0.077s FAILED (failures=2, skipped=2) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application invalid_models_tests Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: auth, contenttypes, invalid_models_tests, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout fee75d2aed4e58ada6567c464cfd22e89dc65f4a tests/invalid_models_tests/test_ordinary_fields.py Updated 1 path from 9044ec218d
+
+=== Test Verification Results ===
+Tests Passed: False

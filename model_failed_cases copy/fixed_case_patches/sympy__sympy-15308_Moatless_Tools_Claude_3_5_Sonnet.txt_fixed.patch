@@ -1,0 +1,46 @@
+=== Original Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index a0eb97792e..3389d82346 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -2234,6 +2234,12 @@ def _print_primeomega(self, expr, exp=None):
+                     self._print(exp))
+         return r'\Omega\left(%s\right)' % self._print(expr.args[0])
+ 
++    def _print_Trace(self, expr):
++        return r'\mathrm{Tr}\left(%s\right)' % self._print(expr.arg)
++
++    def _print_Trace(self, expr):
++        return r'\mathrm{Tr}\left(%s\right)' % self._print(expr.arg)
++
+ 
+ def translate(s):
+     r'''
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index a0eb97792e..3389d82346 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -2234,6 +2234,12 @@ def _print_primeomega(self, expr, exp=None):
+                     self._print(exp))
+         return r'\Omega\left(%s\right)' % self._print(expr.args[0])
+ 
++    def _print_Trace(self, expr):
++return '\\mathrm{Tr}\\left(%s\\right)' % self._print(expr.arg)
++
++    def _print_Trace(self, expr):
++return '\\mathrm{Tr}\\left(%s\\right)' % self._print(expr.arg)
++
+ 
+ def translate(s):
+     r'''
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ _____________ sympy/printing/tests/test_latex.py:test_issue_13559 ______________
+ValueError: Name node can't be used with 'False' constant ________________________________________________________________________________ ________________ sympy/printing/tests/test_latex.py:test_trace _________________
+
+=== Test Verification Results ===
+Tests Passed: False

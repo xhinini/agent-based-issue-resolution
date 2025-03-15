@@ -1,0 +1,90 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/colorbar.py b/lib/matplotlib/colorbar.py
+index d3d53e3d98..e032115dc5 100644
+--- a/lib/matplotlib/colorbar.py
++++ b/lib/matplotlib/colorbar.py
+@@ -490,27 +490,19 @@ class Colorbar:
+ 
+     filled = _api.deprecate_privatize_attribute("3.6")
+ 
+-    def update_normal(self, mappable):
++    def update_bruteforce(self, mappable):
+         """
+-        Update solid patches, lines, etc.
++        Update the colorbar by resetting the norm and redrawing everything.
+ 
+         This is meant to be called when the norm of the image or contour plot
+-        to which this colorbar belongs changes.
+-
+-        If the norm on the mappable is different than before, this resets the
+-        locator and formatter for the axis, so if these have been customized,
+-        they will need to be customized again.  However, if the norm only
+-        changes values of *vmin*, *vmax* or *cmap* then the old formatter
+-        and locator will be preserved.
++        to which this colorbar belongs changes and a full redraw is needed.
+         """
+-        _log.debug('colorbar update normal %r %r', mappable.norm, self.norm)
++        _log.debug('colorbar update bruteforce %r %r', mappable.norm, self.norm)
+         self.mappable = mappable
+         self.set_alpha(mappable.get_alpha())
+         self.cmap = mappable.cmap
+-        if mappable.norm != self.norm:
+-            self.norm = mappable.norm
+-            self._reset_locator_formatter_scale()
+-
++        self.norm = mappable.norm
++        self._reset_locator_formatter_scale()
+         self._draw_all()
+         if isinstance(self.mappable, contour.ContourSet):
+             CS = self.mappable
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/colorbar.py b/lib/matplotlib/colorbar.py
+index d3d53e3d98..e032115dc5 100644
+--- a/lib/matplotlib/colorbar.py
++++ b/lib/matplotlib/colorbar.py
+@@ -490,27 +490,19 @@ class Colorbar:
+ 
+     filled = _api.deprecate_privatize_attribute("3.6")
+ 
+-    def update_normal(self, mappable):
++    def update_bruteforce(self, mappable):
+         """
+-        Update solid patches, lines, etc.
++        Update the colorbar by resetting the norm and redrawing everything.
+ 
+         This is meant to be called when the norm of the image or contour plot
+-        to which this colorbar belongs changes.
+-
+-        If the norm on the mappable is different than before, this resets the
+-        locator and formatter for the axis, so if these have been customized,
+-        they will need to be customized again.  However, if the norm only
+-        changes values of *vmin*, *vmax* or *cmap* then the old formatter
+-        and locator will be preserved.
++        to which this colorbar belongs changes and a full redraw is needed.
+         """
+-        _log.debug('colorbar update normal %r %r', mappable.norm, self.norm)
++_log.debug('colorbar update bruteforce %r %r', mappable.norm, self.norm)
+         self.mappable = mappable
+         self.set_alpha(mappable.get_alpha())
+         self.cmap = mappable.cmap
+-        if mappable.norm != self.norm:
+-            self.norm = mappable.norm
+-            self._reset_locator_formatter_scale()
+-
++self.norm = mappable.norm
++self._reset_locator_formatter_scale()
+         self._draw_all()
+         if isinstance(self.mappable, contour.ContourSet):
+             CS = self.mappable
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+FAILED lib/matplotlib/tests/test_colorbar.py::test_aspects - AttributeError: ... FAILED lib/matplotlib/tests/test_colorbar.py::test_proportional_colorbars[png] FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_extend_drawedges[png] FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_contourf_extend_patches[png] FAILED lib/matplotlib/tests/test_colorbar.py::test_negative_boundarynorm - At... FAILED lib/matplotlib/tests/test_colorbar.py::test_centerednorm - AttributeEr... FAILED lib/matplotlib/tests/test_colorbar.py::test_boundaries[png] - Attribut... FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_no_warning_rcparams_grid_true FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_set_formatter_locator FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_extend_alpha[png] FAILED lib/matplotlib/tests/test_colorbar.py::test_offset_text_loc - Attribut... FAILED lib/matplotlib/tests/test_colorbar.py::test_title_text_loc - Attribute... FAILED lib/matplotlib/tests/test_colorbar.py::test_passing_location[png] - At... FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_errors[kwargs1-TypeError-location and orientation are mutually exclusive] FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_errors[kwargs2-ValueError-'top' is not a valid value for position] FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_errors[kwargs3-ValueError-invalid value for extendfrac] FAILED lib/matplotlib/tests/test_colorbar.py::test_colorbar_axes_parmeters - ... =================== 69 failed, 1 passed, 1 skipped in 12.30s =================== + git checkout 78bf53caacbb5ce0dc7aa73f07a74c99f1ed919b lib/matplotlib/tests/test_colorbar.py Updated 1 path from a40bb1c673
+`colorbar.update_normal(mappable)` has now effect and `colorbar.update_bruteforce(mappable)` throws a `ZeroDivsionError`-Exception.
+cb.update_bruteforce(plot)  # throws ZeroDivisionError
+ZeroDivisionError: division by zero
+
+=== Test Verification Results ===
+Tests Passed: False

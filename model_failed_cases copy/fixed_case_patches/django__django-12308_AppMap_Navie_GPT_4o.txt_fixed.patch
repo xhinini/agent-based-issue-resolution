@@ -1,0 +1,56 @@
+=== Original Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..93fa564763 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -13,6 +13,7 @@ from django.utils.html import format_html
+ from django.utils.regex_helper import _lazy_re_compile
+ from django.utils.text import capfirst
+ from django.utils.translation import ngettext, override as translation_override
++from django.db.models import JSONField  # Added import for JSONField
+ 
+ QUOTE_MAP = {i: '_%02X' % i for i in b'":/_#?;@&=+$,"[]<>%\n\\'}
+ UNQUOTE_MAP = {v: chr(k) for k, v in QUOTE_MAP.items()}
+@@ -398,6 +399,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, JSONField):
++        return field.prepare_value(value)  # Use prepare_value method for JSONField
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Fixed Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..93fa564763 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -13,6 +13,7 @@ from django.utils.html import format_html
+ from django.utils.regex_helper import _lazy_re_compile
+ from django.utils.text import capfirst
+ from django.utils.translation import ngettext, override as translation_override
++from django.db.models import JSONField
+ 
+ QUOTE_MAP = {i: '_%02X' % i for i in b'":/_#?;@&=+$,"[]<>%\n\\'}
+ UNQUOTE_MAP = {v: chr(k) for k, v in QUOTE_MAP.items()}
+@@ -398,6 +399,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, JSONField):
++return getattr(field, 'prepare_value', False)(value)
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Applied Patterns ===
+  getattr(field, "prepare_value", False): 0.0% success rate
+
+=== Original Error Messages ===
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value=['a', 'b']) ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value='a') ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ====================================================================== ERROR: test_json_display_for_field (admin_utils.tests.UtilsTests) (value={('a', 'b'): 'c'}) ----------------------------------------------------------------------
+AttributeError: 'JSONField' object has no attribute 'prepare_value' ---------------------------------------------------------------------- Ran 22 tests in 0.057s FAILED (errors=4) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 2e0f04507b17362239ba49830d26fec504d46978 tests/admin_utils/tests.py Updated 1 path from be0eb0e2d4
+I believe the fix would be to add a special case in django.contrib.admin.utils.display_for_field to call the prepare_value of the JSONField (not calling json.dumps directly to take care of the InvalidJSONInput case).
+
+=== Test Verification Results ===
+Tests Passed: False

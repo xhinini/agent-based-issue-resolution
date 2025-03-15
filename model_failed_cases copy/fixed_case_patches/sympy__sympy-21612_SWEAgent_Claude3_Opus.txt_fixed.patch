@@ -1,0 +1,31 @@
+=== Original Patch ===
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..3a46a07eb8
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,4 @@
++from sympy.parsing.latex import parse_latex
++expr = "\\frac{\\frac{a^3+b}{c}}{\\frac{1}{c^2}}"
++print(f"LaTeX expression: {expr}")
++print(f"Parsed expression: {parse_latex(expr)}")
+
+=== Fixed Patch ===
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+index 0000000000..3a46a07eb8
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,4 @@
++from sympy.parsing.latex import parse_latex
++expr = '\\frac{\\frac{a^3+b}{c}}{\\frac{1}{c^2}}'
++print(f'LaTeX expression: {expr}')
++print(f'Parsed expression: {parse_latex(expr)}')
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Latex parsing of fractions yields wrong expression due to missing brackets
+The missing brackets in the denominator result in a wrong expression.
+
+=== Test Verification Results ===
+Tests Passed: False

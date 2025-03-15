@@ -1,0 +1,91 @@
+=== Original Patch ===
+diff --git a/sympy/functions/combinatorial/numbers.py b/sympy/functions/combinatorial/numbers.py
+index 896729ac87..b4efa1a146 100644
+--- a/sympy/functions/combinatorial/numbers.py
++++ b/sympy/functions/combinatorial/numbers.py
+@@ -443,16 +443,9 @@ def eval(cls, n, k_sym=None, symbols=None):
+                 r = cls._bell_incomplete_poly(int(n), int(k_sym), symbols)
+                 return r
+ 
+-    def _eval_rewrite_as_Sum(self, n, k_sym=None, symbols=None):
+-        from sympy import Sum
+-        if (k_sym is not None) or (symbols is not None):
+-            return self
+-
+-        # Dobinski's formula
+-        if not n.is_nonnegative:
+-            return self
+-        k = Dummy('k', integer=True, nonnegative=True)
+-        return 1 / E * Sum(k**n / factorial(k), (k, 0, S.Infinity))
++    def _eval_as_leading_term(self, x):
++        from sympy import oo
++        return oo
+ 
+ #----------------------------------------------------------------------------#
+ #                                                                            #
+@@ -1054,6 +1047,7 @@ def _eval_is_positive(self):
+         n = self.args[0]
+         if n.is_integer and n.is_positive:
+             if n.is_odd:
++                from sympy.core.logic import fuzzy_not
+                 return fuzzy_not((n - 1).is_positive)
+             return (n / 2).is_even
+ 
+@@ -1069,6 +1063,7 @@ def _eval_is_odd(self):
+         if n.is_integer and n.is_positive:
+             if n.is_even:
+                 return True
++            from sympy.core.logic import fuzzy_not
+             return fuzzy_not((n - 1).is_positive)
+ 
+     def _eval_is_prime(self):
+
+=== Fixed Patch ===
+diff --git a/sympy/functions/combinatorial/numbers.py b/sympy/functions/combinatorial/numbers.py
+index 896729ac87..b4efa1a146 100644
+--- a/sympy/functions/combinatorial/numbers.py
++++ b/sympy/functions/combinatorial/numbers.py
+@@ -443,16 +443,9 @@ def eval(cls, n, k_sym=None, symbols=None):
+                 r = cls._bell_incomplete_poly(int(n), int(k_sym), symbols)
+                 return r
+ 
+-    def _eval_rewrite_as_Sum(self, n, k_sym=None, symbols=None):
+-        from sympy import Sum
+-        if (k_sym is not None) or (symbols is not None):
+-            return self
+-
+-        # Dobinski's formula
+-        if not n.is_nonnegative:
+-            return self
+-        k = Dummy('k', integer=True, nonnegative=True)
+-        return 1 / E * Sum(k**n / factorial(k), (k, 0, S.Infinity))
++    def _eval_as_leading_term(self, x):
++from sympy import oo
++return oo
+ 
+ #----------------------------------------------------------------------------#
+ #                                                                            #
+@@ -1054,6 +1047,7 @@ def _eval_is_positive(self):
+         n = self.args[0]
+         if n.is_integer and n.is_positive:
+             if n.is_odd:
++from sympy.core.logic import fuzzy_not
+                 return fuzzy_not((n - 1).is_positive)
+             return (n / 2).is_even
+ 
+@@ -1069,6 +1063,7 @@ def _eval_is_odd(self):
+         if n.is_integer and n.is_positive:
+             if n.is_even:
+                 return True
++from sympy.core.logic import fuzzy_not
+             return fuzzy_not((n - 1).is_positive)
+ 
+     def _eval_is_prime(self):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

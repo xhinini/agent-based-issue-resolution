@@ -1,0 +1,36 @@
+=== Original Patch ===
+diff --git a/src/flask/config.py b/src/flask/config.py
+index 73be34c..611e7e7 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -234,6 +234,7 @@ class Config(dict):
+         filename: str,
+         load: t.Callable[[t.IO[t.Any]], t.Mapping],
+         silent: bool = False,
++        mode: str = "t",
+     ) -> bool:
+         """Update the values in the config from a file that is loaded
+         using the ``load`` parameter. The loaded data is passed to the
+
+=== Fixed Patch ===
+diff --git a/src/flask/config.py b/src/flask/config.py
+index 73be34c..611e7e7 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -234,6 +234,7 @@ class Config(dict):
+         filename: str,
+         load: t.Callable[[t.IO[t.Any]], t.Mapping],
+         silent: bool = False,
++mode: str = ('t',)
+     ) -> bool:
+         """Update the values in the config from a file that is loaded
+         using the ``load`` parameter. The loaded data is passed to the
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+However, `tomllib.load()` takes an object readable in binary mode, while `flask.Config.from_file()` opens a file in text mode, resulting in this error:
+TypeError: File must be opened in binary mode, e.g. use `open('foo.toml', 'rb')`
+
+=== Test Verification Results ===
+Tests Passed: False

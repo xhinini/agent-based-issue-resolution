@@ -1,0 +1,48 @@
+=== Original Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..a3cf6f97a1 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -950,6 +950,13 @@ class CharField(Field):
+     def __init__(self, *args, **kwargs):
+         super().__init__(*args, **kwargs)
+         self.validators.append(validators.MaxLengthValidator(self.max_length))
++        if self.choices:
++            max_choice_length = max(len(str(choice[0])) for choice in self.choices)
++            if max_choice_length > self.max_length:
++                raise ValueError(
++                    f"The maximum length of the longest choice ({max_choice_length}) "
++                    f"is greater than the specified max_length ({self.max_length})."
++                )
+ 
+     def check(self, **kwargs):
+         return [
+
+=== Fixed Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..a3cf6f97a1 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -950,6 +950,13 @@ class CharField(Field):
+     def __init__(self, *args, **kwargs):
+         super().__init__(*args, **kwargs)
+         self.validators.append(validators.MaxLengthValidator(self.max_length))
++        if self.choices:
++max_choice_length = max((len(str(choice[0])) for choice in self.choices))
++            if max_choice_length > self.max_length:
++                raise ValueError(
++f'The maximum length of the longest choice ({max_choice_length}) '
++f'is greater than the specified max_length ({self.max_length}).'
++                )
+ 
+     def check(self, **kwargs):
+         return [
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: The maximum length of the longest choice (3) is greater than the specified max_length (2). ====================================================================== ERROR: test_iterable_of_iterable_choices (invalid_models_tests.test_ordinary_fields.CharFieldTests) ----------------------------------------------------------------------
+TypeError: 'ThingItem' object does not support indexing ---------------------------------------------------------------------- Ran 47 tests in 0.060s FAILED (errors=2, skipped=2) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application invalid_models_tests Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: auth, contenttypes, invalid_models_tests, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout fee75d2aed4e58ada6567c464cfd22e89dc65f4a tests/invalid_models_tests/test_ordinary_fields.py Updated 1 path from 9044ec218d
+
+=== Test Verification Results ===
+Tests Passed: False

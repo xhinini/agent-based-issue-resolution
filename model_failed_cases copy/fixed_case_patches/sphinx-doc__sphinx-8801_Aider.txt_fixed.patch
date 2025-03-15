@@ -1,0 +1,49 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index dc413b5c2..e4a38bf62 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -2453,6 +2453,15 @@ class AttributeDocumenter(GenericAliasMixin, NewTypeMixin, SlotsMixin,  # type:
+             self.object = self.object.value
+         if self.parent:
+             self.update_annotations(self.parent)
++            if not ret and self.objpath:
++                # An attribute not defined in __annotations__ of the class.
++                # But it may be defined in __annotations__ of a parent class.
++                for cls in self.parent.__mro__:
++                    if self.objpath[-1] in getattr(cls, '__annotations__', {}):
++                        # The attribute is defined in a parent class.
++                        # Suppress the ImportError and treat it as a valid attribute.
++                        ret = True
++                        break
+ 
+         return ret
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index dc413b5c2..e4a38bf62 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -2453,6 +2453,15 @@ class AttributeDocumenter(GenericAliasMixin, NewTypeMixin, SlotsMixin,  # type:
+             self.object = self.object.value
+         if self.parent:
+             self.update_annotations(self.parent)
++            if not ret and self.objpath:
++                # An attribute not defined in __annotations__ of the class.
++                # But it may be defined in __annotations__ of a parent class.
++                for cls in self.parent.__mro__:
++                    if self.objpath[-1] in getattr(cls, '__annotations__', {}):
++                        # The attribute is defined in a parent class.
++                        # Suppress the ImportError and treat it as a valid attribute.
++ret = True
++break
+ 
+         return ret
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+`Bar.attr1` is not documented. It will be shown if I give `:undoc-members:` option to the autoclass directive call. It seems the attribute is treated as undocumented.
+
+=== Test Verification Results ===
+Tests Passed: False

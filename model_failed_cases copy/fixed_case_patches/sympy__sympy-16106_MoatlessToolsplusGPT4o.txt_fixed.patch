@@ -1,0 +1,56 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..8a86c5fa9e 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -1270,6 +1270,16 @@ def _print_Lambda(self, e):
+         x.appendChild(mrow)
+         return x
+ 
++    def _print_Indexed(self, expr):
++        msub = self.dom.createElement('msub')
++        base = self._print(expr.base)
++        indices = self.dom.createElement('mrow')
++        for index in expr.indices:
++            indices.appendChild(self._print(index))
++        msub.appendChild(base)
++        msub.appendChild(indices)
++        return msub
++
+ 
+ def mathml(expr, printer='content', **settings):
+     """Returns the MathML representation of expr. If printer is presentation then
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..8a86c5fa9e 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -1270,6 +1270,16 @@ def _print_Lambda(self, e):
+         x.appendChild(mrow)
+         return x
+ 
++    def _print_Indexed(self, expr):
++msub = self.dom.createElement('msub')
++base = self._print(expr.base)
++indices = self.dom.createElement('mrow')
++        for index in expr.indices:
++indices.appendChild(self._print(index))
++msub.appendChild(base)
++msub.appendChild(indices)
++return msub
++
+ 
+ def mathml(expr, printer='content', **settings):
+     """Returns the MathML representation of expr. If printer is presentation then
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Writing an `Indexed` object to MathML fails with a `TypeError` exception: `TypeError: 'Indexed' object is not iterable`:
+TypeError                                 Traceback (most recent call last)
+TypeError: 'Indexed' object is not iterable
+It also fails for more complex expressions where at least one element is Indexed.
+
+=== Test Verification Results ===
+Tests Passed: False

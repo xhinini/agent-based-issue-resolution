@@ -1,0 +1,1093 @@
+# Instance ID: astropy__astropy-7746
+# Model: AppMap Navie GPT-4o
+
+### Original Case Description and Gold Patch
+# INSTANCE_ID: astropy__astropy-7746
+
+### ISSUE TYPE
+bug fix
+
+### DESCRIPTION
+Issue when passing empty lists/arrays to WCS transformations
+The following should not fail but instead should return empty lists/arrays:
+
+```
+In [1]: from astropy.wcs import WCS
+
+In [2]: wcs = WCS('2MASS_h.fits')
+
+In [3]: wcs.wcs_pix2world([], [], 0)
+---------------------------------------------------------------------------
+InconsistentAxisTypesError                Traceback (most recent call last)
+<ipython-input-3-e2cc0e97941a> in <module>()
+----> 1 wcs.wcs_pix2world([], [], 0)
+
+~/Dropbox/Code/Astropy/astropy/astropy/wcs/wcs.py in wcs_pix2world(self, *args, **kwargs)
+   1352         return self._array_converter(
+   1353             lambda xy, o: self.wcs.p2s(xy, o)['world'],
+-> 1354             'output', *args, **kwargs)
+   1355     wcs_pix2world.__doc__ = """
+   1356         Transforms pixel coordinates to world coordinates by doing
+
+~/Dropbox/Code/Astropy/astropy/astropy/wcs/wcs.py in _array_converter(self, func, sky, ra_dec_order, *args)
+   1267                     "a 1-D array for each axis, followed by an origin.")
+   1268 
+-> 1269             return _return_list_of_arrays(axes, origin)
+   1270 
+   1271         raise TypeError(
+
+~/Dropbox/Code/Astropy/astropy/astropy/wcs/wcs.py in _return_list_of_arrays(axes, origin)
+   1223             if ra_dec_order and sky == 'input':
+   1224                 xy = self._denormalize_sky(xy)
+-> 1225             output = func(xy, origin)
+   1226             if ra_dec_order and sky == 'output':
+   1227                 output = self._normalize_sky(output)
+
+~/Dropbox/Code/Astropy/astropy/astropy/wcs/wcs.py in <lambda>(xy, o)
+   1351             raise ValueError("No basic WCS settings were created.")
+   1352         return self._array_converter(
+-> 1353             lambda xy, o: self.wcs.p2s(xy, o)['world'],
+   1354             'output', *args, **kwargs)
+   1355     wcs_pix2world.__doc__ = """
+
+InconsistentAxisTypesError: ERROR 4 in wcsp2s() at line 2646 of file cextern/wcslib/C/wcs.c:
+ncoord and/or nelem inconsistent with the wcsprm.
+```
+
+
+### GOLD_PATCH
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1212,6 +1212,9 @@ def _array_converter(self, func, sky, *args, ra_dec_order=False):
+         """
+ 
+         def _return_list_of_arrays(axes, origin):
++            if any([x.size == 0 for x in axes]):
++                return axes
++
+             try:
+                 axes = np.broadcast_arrays(*axes)
+             except ValueError:
+@@ -1235,6 +1238,8 @@ def _return_single_array(xy, origin):
+                 raise ValueError(
+                     "When providing two arguments, the array must be "
+                     "of shape (N, {0})".format(self.naxis))
++            if 0 in xy.shape:
++                return xy
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             result = func(xy, origin)
+
+
+### MODEL_OUTPUTS
+
+
+
+
+### Model Generated Patch
+diff --git a/astropy/wcs/src/astropy_wcs.c b/astropy/wcs/src/astropy_wcs.c
+index 080598f7d..654742f59 100644
+--- a/astropy/wcs/src/astropy_wcs.c
++++ b/astropy/wcs/src/astropy_wcs.c
+@@ -235,6 +235,80 @@ Wcs_all_pix2world(
+     goto exit;
+   }
+ 
++  // Handle empty input
++  if (PyArray_SIZE(pixcrd) == 0) {
++    world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
++    if (world == NULL) {
++        goto exit;
++    }
++    Py_XDECREF(pixcrd);
++    return (PyObject*)world;
++  }
++
++  world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
++  if (world == NULL) {
++    goto exit;
++  }
++
++  /* Make the call */
++  Py_BEGIN_ALLOW_THREADS
++  preoffset_array(pixcrd, origin);
++  wcsprm_python2c(self->x.wcs);
++  status = pipeline_all_pixel2world(&self->x,
++                                    (unsigned int)PyArray_DIM(pixcrd, 0),
++                                    (unsigned int)PyArray_DIM(pixcrd, 1),
++                                    (double*)PyArray_DATA(pixcrd),
++                                    (double*)PyArray_DATA(world));
++  wcsprm_c2python(self->x.wcs);
++  unoffset_array(pixcrd, origin);
++  Py_END_ALLOW_THREADS
++  /* unoffset_array(world, origin); */
++
++ exit:
++  Py_XDECREF(pixcrd);
++
++  if (status == 0 || status == 8) {
++    return (PyObject*)world;
++  } else {
++    Py_XDECREF(world);
++    if (status == -1) {
++      PyErr_SetString(
++        PyExc_ValueError,
++        "Wrong number of dimensions in input array.  Expected 2.");
++      return NULL;
++    } else {
++      if (status == -1) {
++        /* exception already set */
++        return NULL;
++      } else {
++        wcserr_to_python_exc(self->x.err);
++        return NULL;
++      }
++    }
++  }
++}
++
++  if (!PyArg_ParseTupleAndKeywords(
++          args, kwds, "Oi:all_pix2world", (char **)keywords,
++          &pixcrd_obj, &origin)) {
++    return NULL;
++  }
++
++  naxis = self->x.wcs->naxis;
++
++  pixcrd = (PyArrayObject*)PyArray_ContiguousFromAny(pixcrd_obj, NPY_DOUBLE, 2, 2);
++  if (pixcrd == NULL) {
++    return NULL;
++  }
++
++  if (PyArray_DIM(pixcrd, 1) < naxis) {
++    PyErr_Format(
++      PyExc_RuntimeError,
++      "Input array must be 2-dimensional, where the second dimension >= %d",
++      naxis);
++    goto exit;
++  }
++
+   world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
+   if (world == NULL) {
+     goto exit;
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b3..16370803d 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1349,13 +1349,18 @@ reduce these to 2 dimensions using the naxis kwarg.
+     def wcs_pix2world(self, *args, **kwargs):
+         if self.wcs is None:
+             raise ValueError("No basic WCS settings were created.")
++    
++        # Check for empty arrays and return empty results if so
++        if any(isinstance(arg, np.ndarray) and arg.size == 0 for arg in args):
++            return tuple(np.empty_like(arg) for arg in args if isinstance(arg, np.ndarray))
++    
+         return self._array_converter(
+             lambda xy, o: self.wcs.p2s(xy, o)['world'],
+             'output', *args, **kwargs)
+     wcs_pix2world.__doc__ = """
+         Transforms pixel coordinates to world coordinates by doing
+         only the basic `wcslib`_ transformation.
+-
++    
+         No `SIP`_ or `distortion paper`_ table lookup correction is
+         applied.  To perform distortion correction, see
+         `~astropy.wcs.WCS.all_pix2world`,
+@@ -2156,6 +2161,11 @@ reduce these to 2 dimensions using the naxis kwarg.
+     def wcs_world2pix(self, *args, **kwargs):
+         if self.wcs is None:
+             raise ValueError("No basic WCS settings were created.")
++    
++        # Check for empty arrays and return empty results if so
++        if any(isinstance(arg, np.ndarray) and arg.size == 0 for arg in args):
++            return tuple(np.empty_like(arg) for arg in args if isinstance(arg, np.ndarray))
++    
+         return self._array_converter(
+             lambda xy, o: self.wcs.s2p(xy, o)['pixcrd'],
+             'input', *args, **kwargs)
+@@ -2163,21 +2173,21 @@ reduce these to 2 dimensions using the naxis kwarg.
+         Transforms world coordinates to pixel coordinates, using only
+         the basic `wcslib`_ WCS transformation.  No `SIP`_ or
+         `distortion paper`_ table lookup transformation is applied.
+-
++    
+         Parameters
+         ----------
+         {0}
+-
++    
+             For a transformation that is not two-dimensional, the
+             two-argument form must be used.
+-
++    
+         {1}
+-
++    
+         Returns
+         -------
+-
++    
+         {2}
+-
++    
+         Notes
+         -----
+         The order of the axes for the input world array is determined by
+@@ -2186,30 +2196,30 @@ reduce these to 2 dimensions using the naxis kwarg.
+         `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+         `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+         members can be used to determine the order of the axes.
+-
++    
+         Raises
+         ------
+         MemoryError
+             Memory allocation failed.
+-
++    
+         SingularMatrixError
+             Linear transformation matrix is singular.
+-
++    
+         InconsistentAxisTypesError
+             Inconsistent or unrecognized coordinate axis types.
+-
++    
+         ValueError
+             Invalid parameter value.
+-
++    
+         ValueError
+             Invalid coordinate transformation parameters.
+-
++    
+         ValueError
+             x- and y-coordinate arrays are not the same size.
+-
++    
+         InvalidTransformError
+             Invalid coordinate transformation parameters.
+-
++    
+         InvalidTransformError
+             Ill-conditioned coordinate transformation parameters.
+         """.format(__.TWO_OR_MORE_ARGS('naxis', 8),
+
+
+### Test Output
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z '' ']'
++++ export CONDA_SHLVL=0
++++ CONDA_SHLVL=0
++++ '[' -n '' ']'
++++++ dirname /opt/miniconda3/bin/conda
+++++ dirname /opt/miniconda3/bin
++++ PATH=/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export PATH
++++ '[' -z '' ']'
++++ PS1=
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1=
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=1
++++ CONDA_SHLVL=1
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=2
+++ CONDA_SHLVL=2
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_1=/opt/miniconda3
+++ CONDA_PREFIX_1=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ cd /testbed
++ git config --global --add safe.directory /testbed
++ cd /testbed
++ git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   astropy/wcs/src/astropy_wcs.c
+	modified:   astropy/wcs/wcs.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
+commit d5bd3f68bb6d5ce3a61bdce9883ee750d1afade5
+Merge: 413277e789 2f83e2b3e6
+Author: Brigitta Sipocz <bsipocz@gmail.com>
+Date:   Wed Aug 15 16:36:50 2018 +0100
+
+    Merge pull request #7742 from astrofrog/travis-egg-info
+    
+    Travis: Remove some egg_info builds
+
++ git diff d5bd3f68bb6d5ce3a61bdce9883ee750d1afade5
+diff --git a/astropy/wcs/src/astropy_wcs.c b/astropy/wcs/src/astropy_wcs.c
+index 080598f7db..654742f59e 100644
+--- a/astropy/wcs/src/astropy_wcs.c
++++ b/astropy/wcs/src/astropy_wcs.c
+@@ -235,6 +235,80 @@ Wcs_all_pix2world(
+     goto exit;
+   }
+ 
++  // Handle empty input
++  if (PyArray_SIZE(pixcrd) == 0) {
++    world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
++    if (world == NULL) {
++        goto exit;
++    }
++    Py_XDECREF(pixcrd);
++    return (PyObject*)world;
++  }
++
++  world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
++  if (world == NULL) {
++    goto exit;
++  }
++
++  /* Make the call */
++  Py_BEGIN_ALLOW_THREADS
++  preoffset_array(pixcrd, origin);
++  wcsprm_python2c(self->x.wcs);
++  status = pipeline_all_pixel2world(&self->x,
++                                    (unsigned int)PyArray_DIM(pixcrd, 0),
++                                    (unsigned int)PyArray_DIM(pixcrd, 1),
++                                    (double*)PyArray_DATA(pixcrd),
++                                    (double*)PyArray_DATA(world));
++  wcsprm_c2python(self->x.wcs);
++  unoffset_array(pixcrd, origin);
++  Py_END_ALLOW_THREADS
++  /* unoffset_array(world, origin); */
++
++ exit:
++  Py_XDECREF(pixcrd);
++
++  if (status == 0 || status == 8) {
++    return (PyObject*)world;
++  } else {
++    Py_XDECREF(world);
++    if (status == -1) {
++      PyErr_SetString(
++        PyExc_ValueError,
++        "Wrong number of dimensions in input array.  Expected 2.");
++      return NULL;
++    } else {
++      if (status == -1) {
++        /* exception already set */
++        return NULL;
++      } else {
++        wcserr_to_python_exc(self->x.err);
++        return NULL;
++      }
++    }
++  }
++}
++
++  if (!PyArg_ParseTupleAndKeywords(
++          args, kwds, "Oi:all_pix2world", (char **)keywords,
++          &pixcrd_obj, &origin)) {
++    return NULL;
++  }
++
++  naxis = self->x.wcs->naxis;
++
++  pixcrd = (PyArrayObject*)PyArray_ContiguousFromAny(pixcrd_obj, NPY_DOUBLE, 2, 2);
++  if (pixcrd == NULL) {
++    return NULL;
++  }
++
++  if (PyArray_DIM(pixcrd, 1) < naxis) {
++    PyErr_Format(
++      PyExc_RuntimeError,
++      "Input array must be 2-dimensional, where the second dimension >= %d",
++      naxis);
++    goto exit;
++  }
++
+   world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
+   if (world == NULL) {
+     goto exit;
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..16370803d4 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1349,13 +1349,18 @@ reduce these to 2 dimensions using the naxis kwarg.
+     def wcs_pix2world(self, *args, **kwargs):
+         if self.wcs is None:
+             raise ValueError("No basic WCS settings were created.")
++    
++        # Check for empty arrays and return empty results if so
++        if any(isinstance(arg, np.ndarray) and arg.size == 0 for arg in args):
++            return tuple(np.empty_like(arg) for arg in args if isinstance(arg, np.ndarray))
++    
+         return self._array_converter(
+             lambda xy, o: self.wcs.p2s(xy, o)['world'],
+             'output', *args, **kwargs)
+     wcs_pix2world.__doc__ = """
+         Transforms pixel coordinates to world coordinates by doing
+         only the basic `wcslib`_ transformation.
+-
++    
+         No `SIP`_ or `distortion paper`_ table lookup correction is
+         applied.  To perform distortion correction, see
+         `~astropy.wcs.WCS.all_pix2world`,
+@@ -2156,6 +2161,11 @@ reduce these to 2 dimensions using the naxis kwarg.
+     def wcs_world2pix(self, *args, **kwargs):
+         if self.wcs is None:
+             raise ValueError("No basic WCS settings were created.")
++    
++        # Check for empty arrays and return empty results if so
++        if any(isinstance(arg, np.ndarray) and arg.size == 0 for arg in args):
++            return tuple(np.empty_like(arg) for arg in args if isinstance(arg, np.ndarray))
++    
+         return self._array_converter(
+             lambda xy, o: self.wcs.s2p(xy, o)['pixcrd'],
+             'input', *args, **kwargs)
+@@ -2163,21 +2173,21 @@ reduce these to 2 dimensions using the naxis kwarg.
+         Transforms world coordinates to pixel coordinates, using only
+         the basic `wcslib`_ WCS transformation.  No `SIP`_ or
+         `distortion paper`_ table lookup transformation is applied.
+-
++    
+         Parameters
+         ----------
+         {0}
+-
++    
+             For a transformation that is not two-dimensional, the
+             two-argument form must be used.
+-
++    
+         {1}
+-
++    
+         Returns
+         -------
+-
++    
+         {2}
+-
++    
+         Notes
+         -----
+         The order of the axes for the input world array is determined by
+@@ -2186,30 +2196,30 @@ reduce these to 2 dimensions using the naxis kwarg.
+         `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+         `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+         members can be used to determine the order of the axes.
+-
++    
+         Raises
+         ------
+         MemoryError
+             Memory allocation failed.
+-
++    
+         SingularMatrixError
+             Linear transformation matrix is singular.
+-
++    
+         InconsistentAxisTypesError
+             Inconsistent or unrecognized coordinate axis types.
+-
++    
+         ValueError
+             Invalid parameter value.
+-
++    
+         ValueError
+             Invalid coordinate transformation parameters.
+-
++    
+         ValueError
+             x- and y-coordinate arrays are not the same size.
+-
++    
+         InvalidTransformError
+             Invalid coordinate transformation parameters.
+-
++    
+         InvalidTransformError
+             Ill-conditioned coordinate transformation parameters.
+         """.format(__.TWO_OR_MORE_ARGS('naxis', 8),
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z x ']'
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1='(testbed) '
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=3
++++ CONDA_SHLVL=3
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=4
+++ CONDA_SHLVL=4
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_3=/opt/miniconda3
+++ CONDA_PREFIX_3=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ python -m pip install -e '.[test]' --verbose
+Using pip 21.2.2 from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pip (python 3.6)
+Obtaining file:///testbed
+    Running command python setup.py egg_info
+    running egg_info
+    creating /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info
+    writing /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/PKG-INFO
+    writing dependency_links to /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/dependency_links.txt
+    writing entry points to /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/entry_points.txt
+    writing requirements to /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/requires.txt
+    writing top-level names to /tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/top_level.txt
+    writing manifest file '/tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/SOURCES.txt'
+    reading manifest file '/tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/SOURCES.txt'
+    reading manifest template 'MANIFEST.in'
+    warning: no files found matching 'ez_setup.py'
+    warning: no files found matching 'astropy/utils/misc/data/.hidden_file.txt'
+    warning: no files found matching '*' under directory 'scripts'
+    warning: no files found matching '*' under directory 'astropy/sphinx/themes'
+    no previously-included directories found matching 'docs/_build'
+    no previously-included directories found matching 'build'
+    warning: no files found matching 'astropy_helpers/ez_setup.py'
+    warning: no files found matching '*.pyx' under directory 'astropy_helpers/astropy_helpers'
+    warning: no files found matching '*.h' under directory 'astropy_helpers/astropy_helpers'
+    warning: no files found matching '*.rst' under directory 'astropy_helpers/astropy_helpers'
+    no previously-included directories found matching 'astropy_helpers/build'
+    warning: no previously-included files matching '*.pyc' found anywhere in distribution
+    warning: no previously-included files matching '*.o' found anywhere in distribution
+    writing manifest file '/tmp/pip-pip-egg-info-fiq9bvlj/astropy.egg-info/SOURCES.txt'
+Requirement already satisfied: numpy>=1.13.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from astropy==3.1.dev22336) (1.16.0)
+Requirement already satisfied: pytest-astropy in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from astropy==3.1.dev22336) (0.2.1)
+Requirement already satisfied: pytest-remotedata>=0.2.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-astropy->astropy==3.1.dev22336) (0.2.0)
+Requirement already satisfied: pytest-openfiles>=0.2.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-astropy->astropy==3.1.dev22336) (0.2.0)
+Requirement already satisfied: pytest>=3.1.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-astropy->astropy==3.1.dev22336) (3.3.1)
+Requirement already satisfied: pytest-arraydiff in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-astropy->astropy==3.1.dev22336) (0.1)
+Requirement already satisfied: pytest-doctestplus>=0.1.2 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-astropy->astropy==3.1.dev22336) (0.1.2)
+Requirement already satisfied: py>=1.5.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest>=3.1.0->pytest-astropy->astropy==3.1.dev22336) (1.11.0)
+Requirement already satisfied: attrs>=17.2.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest>=3.1.0->pytest-astropy->astropy==3.1.dev22336) (17.3.0)
+Requirement already satisfied: setuptools in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest>=3.1.0->pytest-astropy->astropy==3.1.dev22336) (38.2.4)
+Requirement already satisfied: six>=1.10.0 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest>=3.1.0->pytest-astropy->astropy==3.1.dev22336) (1.16.0)
+Requirement already satisfied: pluggy<0.7,>=0.5 in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest>=3.1.0->pytest-astropy->astropy==3.1.dev22336) (0.6.0)
+Requirement already satisfied: psutil in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from pytest-openfiles>=0.2.0->pytest-astropy->astropy==3.1.dev22336) (5.4.2)
+Installing collected packages: astropy
+  Attempting uninstall: astropy
+    Found existing installation: astropy 3.1.dev22336
+    Uninstalling astropy-3.1.dev22336:
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/fits2bitmap
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/fitscheck
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/fitsdiff
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/fitsheader
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/fitsinfo
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/samp_hub
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/showtable
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/volint
+      Removing file or directory /opt/miniconda3/envs/testbed/bin/wcslint
+      Removing file or directory /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/astropy.egg-link
+      Removing pth entries from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/easy-install.pth:
+      Removing entry: /testbed
+      Successfully uninstalled astropy-3.1.dev22336
+  Running setup.py develop for astropy
+    Running command /opt/miniconda3/envs/testbed/bin/python -c 'import io, os, sys, setuptools, tokenize; sys.argv[0] = '"'"'/testbed/setup.py'"'"'; __file__='"'"'/testbed/setup.py'"'"';f = getattr(tokenize, '"'"'open'"'"', open)(__file__) if os.path.exists(__file__) else io.StringIO('"'"'from setuptools import setup; setup()'"'"');code = f.read().replace('"'"'\r\n'"'"', '"'"'\n'"'"');f.close();exec(compile(code, __file__, '"'"'exec'"'"'))' develop --no-deps
+    running develop
+    running egg_info
+    writing astropy.egg-info/PKG-INFO
+    writing dependency_links to astropy.egg-info/dependency_links.txt
+    writing entry points to astropy.egg-info/entry_points.txt
+    writing requirements to astropy.egg-info/requires.txt
+    writing top-level names to astropy.egg-info/top_level.txt
+    reading manifest file 'astropy.egg-info/SOURCES.txt'
+    reading manifest template 'MANIFEST.in'
+    warning: no files found matching 'ez_setup.py'
+    warning: no files found matching 'astropy/utils/misc/data/.hidden_file.txt'
+    warning: no files found matching '*' under directory 'scripts'
+    warning: no files found matching '*' under directory 'astropy/sphinx/themes'
+    no previously-included directories found matching 'docs/_build'
+    no previously-included directories found matching 'build'
+    warning: no files found matching 'astropy_helpers/ez_setup.py'
+    warning: no files found matching '*.pyx' under directory 'astropy_helpers/astropy_helpers'
+    warning: no files found matching '*.h' under directory 'astropy_helpers/astropy_helpers'
+    warning: no files found matching '*.rst' under directory 'astropy_helpers/astropy_helpers'
+    no previously-included directories found matching 'astropy_helpers/build'
+    warning: no previously-included files matching '*.pyc' found anywhere in distribution
+    warning: no previously-included files matching '*.o' found anywhere in distribution
+    writing manifest file 'astropy.egg-info/SOURCES.txt'
+    running build_ext
+    running pre_hook from astropy._erfa.setup_package for build_ext command
+    running pre_hook from astropy.modeling.setup_package for build_ext command
+    building 'astropy._compiler' extension
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/_compiler.c -o build/temp.linux-x86_64-3.6/astropy/_compiler.o
+    gcc -pthread -shared -B /opt/miniconda3/envs/testbed/compiler_compat -L/opt/miniconda3/envs/testbed/lib -Wl,-rpath=/opt/miniconda3/envs/testbed/lib -Wl,--no-as-needed -Wl,--sysroot=/ build/temp.linux-x86_64-3.6/astropy/_compiler.o -o /testbed/astropy/_compiler.cpython-36m-x86_64-linux-gnu.so
+    skipping 'astropy/table/_np_utils.c' Cython extension (up-to-date)
+    skipping 'astropy/table/_column_mixins.c' Cython extension (up-to-date)
+    building 'astropy.wcs._wcs' extension
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/flexed/wcsbth.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/flexed/wcsbth.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/flexed/wcspih.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/flexed/wcspih.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/flexed/wcsulex.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/flexed/wcsulex.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/flexed/wcsutrn.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/flexed/wcsutrn.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/cel.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/cel.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/dis.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/dis.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/lin.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/lin.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/log.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/log.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/prj.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/prj.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/spc.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/spc.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    In file included from /usr/include/string.h:535,
+                     from cextern/wcslib/C/spc.c:31:
+    In function 'strncpy',
+        inlined from 'spcset' at cextern/wcslib/C/spc.c:265:3:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' output may be truncated copying 4 bytes from a string of length 7 [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/sph.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/sph.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/spx.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/spx.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/tab.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/tab.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcs.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcs.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    cextern/wcslib/C/wcs.c:3074:16: warning: argument 4 of type 'const double[2]' with mismatched bound [-Warray-parameter=]
+     3074 |   const double vspan[2],
+          |   ~~~~~~~~~~~~~^~~~~~~~
+    In file included from cextern/wcslib/C/wcs.c:47:
+    cextern/wcslib/C/wcs.h:1753:69: note: previously declared as 'const double[]'
+     1753 | int wcsmix(struct wcsprm *wcs, int mixpix, int mixcel, const double vspan[],
+          |                                                        ~~~~~~~~~~~~~^~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcserr.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcserr.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    In file included from /usr/include/string.h:535,
+                     from cextern/wcslib/C/wcserr.c:32:
+    In function 'strncpy',
+        inlined from 'wcserr_set' at cextern/wcslib/C/wcserr.c:127:5:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' specified bound 128 equals destination size [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcsfix.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcsfix.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    In file included from /usr/include/string.h:535,
+                     from cextern/wcslib/C/wcsfix.c:31:
+    In function 'strncpy',
+        inlined from 'unitfix.part.0' at cextern/wcslib/C/wcsfix.c:454:5:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' specified bound 80 equals destination size [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    In function 'strncpy',
+        inlined from 'unitfix.part.0' at cextern/wcslib/C/wcsfix.c:461:9:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' output may be truncated copying between 1 and 159 bytes from a string of length 159 [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcshdr.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcshdr.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    In file included from /usr/include/string.h:535,
+                     from cextern/wcslib/C/wcshdr.c:32:
+    In function 'strncpy',
+        inlined from 'wcshdo_tpdterm' at cextern/wcslib/C/wcshdr.c:1747:7:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' output may be truncated copying between 1 and 10 bytes from a string of length 9 [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcsprintf.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcsprintf.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcsunits.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcsunits.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    cextern/wcslib/C/wcsunits.c:220:68: warning: argument 4 of type 'double[]' with mismatched bound [-Warray-parameter=]
+      220 | int wcsulex(const char unitstr[], int *func, double *scale, double units[])
+          |                                                             ~~~~~~~^~~~~~~
+    In file included from cextern/wcslib/C/wcsunits.c:30:
+    cextern/wcslib/C/wcsunits.h:405:20: note: previously declared as 'double[17]'
+      405 |             double units[WCSUNITS_NTYPE]);
+          |             ~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c cextern/wcslib/C/wcsutil.c -o build/temp.linux-x86_64-3.6/cextern/wcslib/C/wcsutil.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/distortion.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/distortion.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/distortion_wrap.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/distortion_wrap.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/docstrings.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/docstrings.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/pipeline.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/pipeline.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/pyutil.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/pyutil.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    In file included from /usr/include/string.h:535,
+                     from /opt/miniconda3/envs/testbed/include/python3.6m/Python.h:30,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:13,
+                     from astropy/wcs/src/pyutil.c:9:
+    In function 'strncpy',
+        inlined from 'set_pscards' at astropy/wcs/src/pyutil.c:781:5:
+    /usr/include/x86_64-linux-gnu/bits/string_fortified.h:95:10: warning: '__builtin_strncpy' specified bound 72 equals destination size [-Wstringop-truncation]
+       95 |   return __builtin___strncpy_chk (__dest, __src, __len,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       96 |                                   __glibc_objsize (__dest));
+          |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~
+    gcc -pthread -B /opt/miniconda3/envs/testbed/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -DECHO -DWCSTRIG_MACRO -DASTROPY_WCS_BUILD -D_GNU_SOURCE -DNDEBUG -DHAVE_SINCOS -UDEBUG -I/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include -Icextern/wcslib/C -Iastropy/wcs/include -I/opt/miniconda3/envs/testbed/include/python3.6m -c astropy/wcs/src/astropy_wcs.c -o build/temp.linux-x86_64-3.6/astropy/wcs/src/astropy_wcs.o -Wno-strict-prototypes -Wno-unused-function -Wno-unused-value -Wno-uninitialized
+    astropy/wcs/src/astropy_wcs.c:291:3: error: expected identifier or '(' before 'if'
+      291 |   if (!PyArg_ParseTupleAndKeywords(
+          |   ^~
+    astropy/wcs/src/astropy_wcs.c:297:3: warning: data definition has no type or storage class
+      297 |   naxis = self->x.wcs->naxis;
+          |   ^~~~~
+    astropy/wcs/src/astropy_wcs.c:297:3: warning: type defaults to 'int' in declaration of 'naxis' [-Wimplicit-int]
+    astropy/wcs/src/astropy_wcs.c:297:11: error: 'self' undeclared here (not in a function)
+      297 |   naxis = self->x.wcs->naxis;
+          |           ^~~~
+    astropy/wcs/src/astropy_wcs.c:299:3: warning: data definition has no type or storage class
+      299 |   pixcrd = (PyArrayObject*)PyArray_ContiguousFromAny(pixcrd_obj, NPY_DOUBLE, 2, 2);
+          |   ^~~~~~
+    astropy/wcs/src/astropy_wcs.c:299:3: warning: type defaults to 'int' in declaration of 'pixcrd' [-Wimplicit-int]
+    In file included from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/arrayobject.h:4,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:16,
+                     from astropy/wcs/include/astropy_wcs/astropy_wcs.h:10,
+                     from astropy/wcs/src/astropy_wcs.c:6:
+    astropy/wcs/src/astropy_wcs.c:299:54: error: 'pixcrd_obj' undeclared here (not in a function); did you mean 'pixcrd'?
+      299 |   pixcrd = (PyArrayObject*)PyArray_ContiguousFromAny(pixcrd_obj, NPY_DOUBLE, 2, 2);
+          |                                                      ^~~~~~~~~~
+    /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/ndarrayobject.h:120:25: note: in definition of macro 'PyArray_ContiguousFromAny'
+      120 |         PyArray_FromAny(op, PyArray_DescrFromType(type), min_depth, \
+          |                         ^~
+    astropy/wcs/src/astropy_wcs.c:300:3: error: expected identifier or '(' before 'if'
+      300 |   if (pixcrd == NULL) {
+          |   ^~
+    astropy/wcs/src/astropy_wcs.c:304:3: error: expected identifier or '(' before 'if'
+      304 |   if (PyArray_DIM(pixcrd, 1) < naxis) {
+          |   ^~
+    astropy/wcs/src/astropy_wcs.c:312:3: warning: data definition has no type or storage class
+      312 |   world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
+          |   ^~~~~
+    astropy/wcs/src/astropy_wcs.c:312:3: warning: type defaults to 'int' in declaration of 'world' [-Wimplicit-int]
+    In file included from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/arrayobject.h:4,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:16,
+                     from astropy/wcs/include/astropy_wcs/astropy_wcs.h:10,
+                     from astropy/wcs/src/astropy_wcs.c:6:
+    astropy/wcs/src/astropy_wcs.c:312:61: warning: passing argument 1 of 'PyArray_DIMS' makes pointer from integer without a cast [-Wint-conversion]
+      312 |   world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
+          |                                                             ^~~~~~
+          |                                                             |
+          |                                                             int
+    /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/ndarrayobject.h:130:40: note: in definition of macro 'PyArray_SimpleNew'
+      130 |         PyArray_New(&PyArray_Type, nd, dims, typenum, NULL, NULL, 0, 0, NULL)
+          |                                        ^~~~
+    In file included from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/ndarrayobject.h:12,
+                     from /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/arrayobject.h:4,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:16,
+                     from astropy/wcs/include/astropy_wcs/astropy_wcs.h:10,
+                     from astropy/wcs/src/astropy_wcs.c:6:
+    /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/numpy/core/include/numpy/ndarraytypes.h:1488:29: note: expected 'PyArrayObject *' {aka 'struct tagPyArrayObject *'} but argument is of type 'int'
+     1488 | PyArray_DIMS(PyArrayObject *arr)
+          |              ~~~~~~~~~~~~~~~^~~
+    astropy/wcs/src/astropy_wcs.c:312:11: warning: initialization of 'int' from 'PyArrayObject *' {aka 'struct tagPyArrayObject *'} makes integer from pointer without a cast [-Wint-conversion]
+      312 |   world = (PyArrayObject*)PyArray_SimpleNew(2, PyArray_DIMS(pixcrd), NPY_DOUBLE);
+          |           ^
+    astropy/wcs/src/astropy_wcs.c:312:11: error: initializer element is not constant
+    astropy/wcs/src/astropy_wcs.c:313:3: error: expected identifier or '(' before 'if'
+      313 |   if (world == NULL) {
+          |   ^~
+    In file included from /opt/miniconda3/envs/testbed/include/python3.6m/Python.h:129,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:13,
+                     from astropy/wcs/include/astropy_wcs/astropy_wcs.h:10,
+                     from astropy/wcs/src/astropy_wcs.c:6:
+    /opt/miniconda3/envs/testbed/include/python3.6m/ceval.h:203:32: error: expected identifier or '(' before '{' token
+      203 | #define Py_BEGIN_ALLOW_THREADS { \
+          |                                ^
+    astropy/wcs/src/astropy_wcs.c:318:3: note: in expansion of macro 'Py_BEGIN_ALLOW_THREADS'
+      318 |   Py_BEGIN_ALLOW_THREADS
+          |   ^~~~~~~~~~~~~~~~~~~~~~
+    astropy/wcs/src/astropy_wcs.c:331:6: error: expected '=', ',', ';', 'asm' or '__attribute__' before ':' token
+      331 |  exit:
+          |      ^
+    In file included from /opt/miniconda3/envs/testbed/include/python3.6m/pytime.h:6,
+                     from /opt/miniconda3/envs/testbed/include/python3.6m/Python.h:77,
+                     from astropy/wcs/include/astropy_wcs/pyutil.h:13,
+                     from astropy/wcs/include/astropy_wcs/astropy_wcs.h:10,
+                     from astropy/wcs/src/astropy_wcs.c:6:
+    /opt/miniconda3/envs/testbed/include/python3.6m/object.h:854:7: error: expected identifier or '(' before 'while'
+      854 |     } while (0)
+          |       ^~~~~
+    astropy/wcs/src/astropy_wcs.c:332:3: note: in expansion of macro 'Py_XDECREF'
+      332 |   Py_XDECREF(pixcrd);
+          |   ^~~~~~~~~~
+    astropy/wcs/src/astropy_wcs.c:334:3: error: expected identifier or '(' before 'if'
+      334 |   if (status == 0 || status == 8) {
+          |   ^~
+    astropy/wcs/src/astropy_wcs.c:336:5: error: expected identifier or '(' before 'else'
+      336 |   } else {
+          |     ^~~~
+    astropy/wcs/src/astropy_wcs.c:353:1: error: expected identifier or '(' before '}' token
+      353 | }
+          | ^
+    error: command 'gcc' failed with exit status 1
+  Rolling back uninstall of astropy
+  Moving to /opt/miniconda3/envs/testbed/bin/fits2bitmap
+   from /tmp/pip-uninstall-0rfv26pl/fits2bitmap
+  Moving to /opt/miniconda3/envs/testbed/bin/fitscheck
+   from /tmp/pip-uninstall-0rfv26pl/fitscheck
+  Moving to /opt/miniconda3/envs/testbed/bin/fitsdiff
+   from /tmp/pip-uninstall-0rfv26pl/fitsdiff
+  Moving to /opt/miniconda3/envs/testbed/bin/fitsheader
+   from /tmp/pip-uninstall-0rfv26pl/fitsheader
+  Moving to /opt/miniconda3/envs/testbed/bin/fitsinfo
+   from /tmp/pip-uninstall-0rfv26pl/fitsinfo
+  Moving to /opt/miniconda3/envs/testbed/bin/samp_hub
+   from /tmp/pip-uninstall-0rfv26pl/samp_hub
+  Moving to /opt/miniconda3/envs/testbed/bin/showtable
+   from /tmp/pip-uninstall-0rfv26pl/showtable
+  Moving to /opt/miniconda3/envs/testbed/bin/volint
+   from /tmp/pip-uninstall-0rfv26pl/volint
+  Moving to /opt/miniconda3/envs/testbed/bin/wcslint
+   from /tmp/pip-uninstall-0rfv26pl/wcslint
+  Moving to /opt/miniconda3/envs/testbed/lib/python3.6/site-packages/astropy.egg-link
+   from /tmp/pip-uninstall-u3gl27f0/astropy.egg-link
+ERROR: Command errored out with exit status 1: /opt/miniconda3/envs/testbed/bin/python -c 'import io, os, sys, setuptools, tokenize; sys.argv[0] = '"'"'/testbed/setup.py'"'"'; __file__='"'"'/testbed/setup.py'"'"';f = getattr(tokenize, '"'"'open'"'"', open)(__file__) if os.path.exists(__file__) else io.StringIO('"'"'from setuptools import setup; setup()'"'"');code = f.read().replace('"'"'\r\n'"'"', '"'"'\n'"'"');f.close();exec(compile(code, __file__, '"'"'exec'"'"'))' develop --no-deps Check the logs for full command output.
++ git checkout d5bd3f68bb6d5ce3a61bdce9883ee750d1afade5 astropy/wcs/tests/test_wcs.py
+Updated 0 paths from 9b09445a86
++ git apply -v -
+Checking patch astropy/wcs/tests/test_wcs.py...
+Applied patch astropy/wcs/tests/test_wcs.py cleanly.
++ pytest -rA -vv -o console_output_style=classic --tb=no astropy/wcs/tests/test_wcs.py
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/testbed/bin/pytest", line 8, in <module>
+    sys.exit(main())
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/config.py", line 50, in main
+    config = _prepareconfig(args, plugins)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/config.py", line 160, in _prepareconfig
+    pluginmanager=pluginmanager, args=args)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/__init__.py", line 617, in __call__
+    return self._hookexec(self, self._nonwrappers + self._wrappers, kwargs)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/__init__.py", line 222, in _hookexec
+    return self._inner_hookexec(hook, methods, kwargs)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/__init__.py", line 216, in <lambda>
+    firstresult=hook.spec_opts.get('firstresult'),
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/callers.py", line 196, in _multicall
+    gen.send(outcome)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/helpconfig.py", line 68, in pytest_cmdline_parse
+    config = outcome.get_result()
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/callers.py", line 76, in get_result
+    raise ex[1].with_traceback(ex[2])
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/callers.py", line 180, in _multicall
+    res = hook_impl.function(*args)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/config.py", line 943, in pytest_cmdline_parse
+    self.parse(args)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/config.py", line 1108, in parse
+    self._preparse(args, addopts=addopts)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/config.py", line 1071, in _preparse
+    self.pluginmanager.load_setuptools_entrypoints('pytest11')
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pluggy/__init__.py", line 397, in load_setuptools_entrypoints
+    plugin = ep.load()
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pkg_resources/__init__.py", line 2405, in load
+    return self.resolve()
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pkg_resources/__init__.py", line 2411, in resolve
+    module = __import__(self.module_name, fromlist=['__name__'], level=0)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/_pytest/assertion/rewrite.py", line 212, in load_module
+    py.builtin.exec_(co, mod.__dict__)
+  File "/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytest_astropy_header/display.py", line 15, in <module>
+    from astropy import __version__ as astropy_version
+ModuleNotFoundError: No module named 'astropy'
++ git checkout d5bd3f68bb6d5ce3a61bdce9883ee750d1afade5 astropy/wcs/tests/test_wcs.py
+Updated 1 path from 9b09445a86
+

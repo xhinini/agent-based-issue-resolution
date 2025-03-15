@@ -1,0 +1,42 @@
+=== Original Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 16823e9..cbda7f8 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -242,8 +242,9 @@ class Field(RegisterLookupMixin):
+             return []
+ 
+     def _check_choices(self):
++        errors = []
+         if not self.choices:
+-            return []
++            return errors
+ 
+         def is_value(value, accept_promise=True):
+             return isinstance(value, (str, Promise) if accept_promise else str) or not is_iterable(value)
+
+=== Fixed Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 16823e9..cbda7f8 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -242,8 +242,9 @@ class Field(RegisterLookupMixin):
+             return []
+ 
+     def _check_choices(self):
++errors = []
+         if not self.choices:
+-            return []
++return errors
+ 
+         def is_value(value, accept_promise=True):
+             return isinstance(value, (str, Promise) if accept_promise else str) or not is_iterable(value)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
++ [<Error: level=40, msg="'max_length' is too small to fit the longest value in 'choices' (3 characters).", hint=None, obj=<django.db.models.fields.CharField: field>, id='fields.E009'>] ====================================================================== FAIL: test_choices_in_max_length (invalid_models_tests.test_ordinary_fields.CharFieldTests) [group] ----------------------------------------------------------------------
++ [<Error: level=40, msg="'max_length' is too small to fit the longest value in 'choices' (6 characters).", hint=None, obj=<django.db.models.fields.CharField: group>, id='fields.E009'>] ---------------------------------------------------------------------- Ran 47 tests in 0.041s FAILED (failures=2, skipped=2) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application invalid_models_tests Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: auth, contenttypes, invalid_models_tests, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout fee75d2aed4e58ada6567c464cfd22e89dc65f4a tests/invalid_models_tests/test_ordinary_fields.py Updated 1 path from 9044ec218d
+
+=== Test Verification Results ===
+Tests Passed: False

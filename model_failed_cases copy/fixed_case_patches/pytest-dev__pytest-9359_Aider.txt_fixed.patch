@@ -1,0 +1,35 @@
+=== Original Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 456681ab2..04aebb5ee 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -958,6 +958,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         for stmt in self.statements:
+             for node in traverse_node(stmt):
+                 ast.copy_location(node, assert_)
++            ast.fix_missing_locations(stmt)
+         return self.statements
+ 
+     def visit_Name(self, name: ast.Name) -> Tuple[ast.Name, str]:
+
+=== Fixed Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 456681ab2..04aebb5ee 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -958,6 +958,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         for stmt in self.statements:
+             for node in traverse_node(stmt):
+                 ast.copy_location(node, assert_)
++ast.fix_missing_locations(stmt)
+         return self.statements
+ 
+     def visit_Name(self, name: ast.Name) -> Tuple[ast.Name, str]:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Error message prints extra code line when using assert in python3.9
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,43 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index 9ba243c..98db93e 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -588,7 +588,10 @@ def rc(group, **kwargs):
+ 
+ @_copy_docstring_and_deprecators(matplotlib.rc_context)
+ def rc_context(rc=None, fname=None):
+-    return matplotlib.rc_context(rc, fname)
++    context = matplotlib.rc_context(rc, fname)
++    if matplotlib.is_interactive():
++        draw_all()
++    return context
+ 
+ 
+ @_copy_docstring_and_deprecators(matplotlib.rcdefaults)
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index 9ba243c..98db93e 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -588,7 +588,10 @@ def rc(group, **kwargs):
+ 
+ @_copy_docstring_and_deprecators(matplotlib.rc_context)
+ def rc_context(rc=None, fname=None):
+-    return matplotlib.rc_context(rc, fname)
++context = matplotlib.rc_context(rc, fname)
++    if matplotlib.is_interactive():
++draw_all()
++return context
+ 
+ 
+ @_copy_docstring_and_deprecators(matplotlib.rcdefaults)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

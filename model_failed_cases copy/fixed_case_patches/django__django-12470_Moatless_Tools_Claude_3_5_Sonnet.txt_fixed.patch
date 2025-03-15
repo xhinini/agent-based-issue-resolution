@@ -1,0 +1,47 @@
+=== Original Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 92213a4e67..37b3b252a3 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -280,6 +280,12 @@ class SQLCompiler:
+         elif self.query.get_meta().ordering:
+             ordering = self.query.get_meta().ordering
+             self._meta_ordering = ordering
++            # Check if ordering is coming from a parent model's Meta class
++            if self.query.model._meta.proxy and self.query.model._meta.concrete_model != self.query.model:
++                parent_meta = self.query.model._meta.concrete_model._meta
++                if parent_meta.ordering == ordering:
++                    # Adjust the column reference for the parent model
++                    ordering = [f"{parent_meta.db_table}.{field.lstrip('-')}" if not field.startswith(parent_meta.db_table) else field for field in ordering]
+         else:
+             ordering = []
+         if self.query.standard_ordering:
+
+=== Fixed Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 92213a4e67..37b3b252a3 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -280,6 +280,12 @@ class SQLCompiler:
+         elif self.query.get_meta().ordering:
+             ordering = self.query.get_meta().ordering
+             self._meta_ordering = ordering
++            # Check if ordering is coming from a parent model's Meta class
++            if self.query.model._meta.proxy and self.query.model._meta.concrete_model != self.query.model:
++parent_meta = self.query.model._meta.concrete_model._meta
++                if parent_meta.ordering == ordering:
++                    # Adjust the column reference for the parent model
++ordering = [f'{parent_meta.db_table}.{getattr(field, 'lstrip', False)('-')}' if not getattr(field, 'startswith', False)(parent_meta.db_table) else field for field in ordering]
+         else:
+             ordering = []
+         if self.query.standard_ordering:
+
+=== Applied Patterns ===
+  getattr(field, "startswith", False): 0.0% success rate
+  getattr(field, "lstrip", False): 0.0% success rate
+
+=== Original Error Messages ===
+AssertionError: Sequences differ: <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> != [<Parent: Parent object (2)>, <Parent: Parent object (1)>] First differing element 0: <Parent: Parent object (1)> <Parent: Parent object (2)> - <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> ? ----------                         ^                            ^   - + [<Parent: Parent object (2)>, <Parent: Parent object (1)>] ?                          ^                            ^ ---------------------------------------------------------------------- Ran 34 tests in 0.081s FAILED (failures=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 142ab6846ac09d6d401e26fc8b6b988a583ac0f5 tests/model_inheritance/models.py tests/model_inheritance/tests.py Updated 2 paths from d12a79a5db
+
+=== Test Verification Results ===
+Tests Passed: False

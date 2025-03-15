@@ -1,0 +1,43 @@
+=== Original Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index 43f9e6ad8d..7719126900 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -872,6 +872,8 @@ def _print_Function(self, expr, exp=None):
+         func = expr.func.__name__
+         if hasattr(self, '_print_' + func) and \
+                 not isinstance(expr, AppliedUndef):
++            if func == 'SingularityFunction':
++                return getattr(self, '_print_' + func)(expr)
+             return getattr(self, '_print_' + func)(expr, exp)
+         else:
+             args = [str(self._print(arg)) for arg in expr.args]
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index 43f9e6ad8d..7719126900 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -872,6 +872,8 @@ def _print_Function(self, expr, exp=None):
+         func = expr.func.__name__
+         if hasattr(self, '_print_' + func) and \
+                 not isinstance(expr, AppliedUndef):
++            if func == 'SingularityFunction':
++return getattr(self, '_print_' + func)(expr)
+             return getattr(self, '_print_' + func)(expr, exp)
+         else:
+             args = [str(self._print(arg)) for arg in expr.args]
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+TypeError: _print_SingularityFunction() got an unexpected keyword argument 'exp' tests finished: 153 passed, 2 expected to fail, 1 exceptions, in 3.36 seconds = DO *NOT* COMMIT! + git checkout aa22709cb7df2d7503803d4b2c0baa7aa21440b6 sympy/printing/tests/test_latex.py Updated 1 path from 58a9735090
+The following error appears:
+TypeError                                 Traceback (most recent call last)
+344             if method is not None:
+346             return None
+509                 if self.order not in ('old', 'none'):
+TypeError: _print_SingularityFunction() got an unexpected keyword argument 'exp'
+
+=== Test Verification Results ===
+Tests Passed: False

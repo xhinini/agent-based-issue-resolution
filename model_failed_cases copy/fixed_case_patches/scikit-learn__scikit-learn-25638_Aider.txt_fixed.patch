@@ -1,0 +1,61 @@
+=== Original Patch ===
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..5d003302a 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -17,6 +17,7 @@ from scipy.sparse import lil_matrix
+ import numpy as np
+ 
+ from .validation import check_array, _assert_all_finite
++import pandas as pd
+ from ..utils._array_api import get_namespace
+ 
+ 
+@@ -73,6 +74,12 @@ def unique_labels(*ys):
+     >>> unique_labels([1, 2, 10], [5, 11])
+     array([ 1,  2,  5, 10, 11])
+     """
++    def _convert_nullable_dtype(y):
++        if isinstance(y, pd.Series) and y.dtype.name in ["Int64", "Float64", "boolean"]:
++            return y.astype(y.dtype.name.lower()).to_numpy()
++        return y
++
++    ys = [ _convert_nullable_dtype(y) for y in ys ]
+     xp, is_array_api = get_namespace(*ys)
+     if not ys:
+         raise ValueError("No argument has been passed.")
+
+=== Fixed Patch ===
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..5d003302a 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -17,6 +17,7 @@ from scipy.sparse import lil_matrix
+ import numpy as np
+ 
+ from .validation import check_array, _assert_all_finite
++import pandas as pd
+ from ..utils._array_api import get_namespace
+ 
+ 
+@@ -73,6 +74,12 @@ def unique_labels(*ys):
+     >>> unique_labels([1, 2, 10], [5, 11])
+     array([ 1,  2,  5, 10, 11])
+     """
++    def _convert_nullable_dtype(y):
++        if isinstance(y, pd.Series) and y.dtype.name in ["Int64", "Float64", "boolean"]:
++return y.astype(y.dtype.name.lower()).to_numpy()
++return y
++
++ys = [_convert_nullable_dtype(y) for y in ys]
+     xp, is_array_api = get_namespace(*ys)
+     if not ys:
+         raise ValueError("No argument has been passed.")
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Support nullable pandas dtypes in `unique_labels`
+
+=== Test Verification Results ===
+Tests Passed: False

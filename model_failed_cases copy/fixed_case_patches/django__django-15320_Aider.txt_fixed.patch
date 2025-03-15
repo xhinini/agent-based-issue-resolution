@@ -1,0 +1,40 @@
+=== Original Patch ===
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 6f26dff0e0..72f4a248c2 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1152,6 +1152,8 @@ class Subquery(BaseExpression, Combinable):
+         self.query = getattr(queryset, 'query', queryset)
+         self.extra = extra
+         super().__init__(output_field)
++        self.query.subquery = True
++        self.query.subquery = True
+ 
+     def get_source_expressions(self):
+         return [self.query]
+
+=== Fixed Patch ===
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 6f26dff0e0..72f4a248c2 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1152,6 +1152,8 @@ class Subquery(BaseExpression, Combinable):
+         self.query = getattr(queryset, 'query', queryset)
+         self.extra = extra
+         super().__init__(output_field)
++self.query.subquery = True
++self.query.subquery = True
+ 
+     def get_source_expressions(self):
+         return [self.query]
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: True is not False ---------------------------------------------------------------------- Ran 164 tests in 0.316s FAILED (failures=1, skipped=1, expected failures=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout b55ebe32417e0884b6b8b3e1bc0379033aa221af tests/expressions/tests.py Updated 1 path from 19f831fe39
+Subquery.as_sql() generates invalid SQL.
+Since ​this commit Subquery.as_sql(...) method returns incorrect SQL removing first and last symbols instead of absent breakets. Adding Subquery().query.subquery = True attribute fixes the problem. From my point of view, it should be set in Subquery constructor.
+# Outptut SQL is invalid (no S letter at the beggining and " symbol at the end):
+
+=== Test Verification Results ===
+Tests Passed: False

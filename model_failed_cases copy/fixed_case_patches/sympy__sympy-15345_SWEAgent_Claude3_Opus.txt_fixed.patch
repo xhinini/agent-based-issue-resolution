@@ -1,0 +1,37 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathematica.py b/sympy/printing/mathematica.py
+index ea7e3a2d94..e17498ed8c 100644
+--- a/sympy/printing/mathematica.py
++++ b/sympy/printing/mathematica.py
+@@ -99,7 +99,7 @@ def _print_Function(self, expr):
+             for cond, mfunc in cond_mfunc:
+                 if cond(*expr.args):
+                     return "%s[%s]" % (mfunc, self.stringify(expr.args, ", "))
+-        return expr.func.__name__ + "[%s]" % self.stringify(expr.args, ", ")
++        return expr.func.__name__ + "[" + ', '.join(self.doprint(a) for a in expr.args) + "]"
+ 
+     def _print_Integral(self, expr):
+         if len(expr.variables) == 1 and not expr.limits[0][1:]:
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathematica.py b/sympy/printing/mathematica.py
+index ea7e3a2d94..e17498ed8c 100644
+--- a/sympy/printing/mathematica.py
++++ b/sympy/printing/mathematica.py
+@@ -99,7 +99,7 @@ def _print_Function(self, expr):
+             for cond, mfunc in cond_mfunc:
+                 if cond(*expr.args):
+                     return "%s[%s]" % (mfunc, self.stringify(expr.args, ", "))
+-        return expr.func.__name__ + "[%s]" % self.stringify(expr.args, ", ")
++return expr.func.__name__ + '[' + ', '.join((self.doprint(a) for a in expr.args)) + ']'
+ 
+     def _print_Integral(self, expr):
+         if len(expr.variables) == 1 and not expr.limits[0][1:]:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+mathematica_code gives wrong output with Max
+
+=== Test Verification Results ===
+Tests Passed: False

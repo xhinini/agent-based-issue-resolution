@@ -1,0 +1,61 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathematica.py b/sympy/printing/mathematica.py
+index 02fc629..a33dc1d 100644
+--- a/sympy/printing/mathematica.py
++++ b/sympy/printing/mathematica.py
+@@ -34,6 +34,14 @@ known_functions = {
+ }
+ 
+ 
++def _print_Derivative(self, expr):
++        return "D[%s]" % (self.stringify(expr.args, ", "))
++
++def _print_Float(self, expr):
++        res =str(expr)
++        return res.replace('e','*^')
++
++
+ class MCodePrinter(CodePrinter):
+     """A printer to convert python expressions to
+     strings of the Wolfram's Mathematica code
+@@ -121,4 +129,4 @@ def mathematica_code(expr, **settings):
+     >>> mcode(sin(x).series(x).removeO())
+     '(1/120)*x^5 - 1/6*x^3 + x'
+     """
+-    return MCodePrinter(settings).doprint(expr)
++    return MCodePrinter(settings).doprint(expr)
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathematica.py b/sympy/printing/mathematica.py
+index 02fc629..a33dc1d 100644
+--- a/sympy/printing/mathematica.py
++++ b/sympy/printing/mathematica.py
+@@ -34,6 +34,14 @@ known_functions = {
+ }
+ 
+ 
++def _print_Derivative(self, expr):
++return 'D[%s]' % self.stringify(expr.args, ', ')
++
++def _print_Float(self, expr):
++res = str(expr)
++return res.replace('e', '*^')
++
++
+ class MCodePrinter(CodePrinter):
+     """A printer to convert python expressions to
+     strings of the Wolfram's Mathematica code
+@@ -121,4 +129,4 @@ def mathematica_code(expr, **settings):
+     >>> mcode(sin(x).series(x).removeO())
+     '(1/120)*x^5 - 1/6*x^3 + x'
+     """
+-    return MCodePrinter(settings).doprint(expr)
++return MCodePrinter(settings).doprint(expr)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

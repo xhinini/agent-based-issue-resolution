@@ -1,0 +1,55 @@
+=== Original Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index 737e16cc74..b33d736797 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -1853,12 +1853,15 @@ def _print_PolynomialRingBase(self, expr):
+         return r"%s%s\left[%s\right]" % (inv, domain, symbols)
+ 
+     def _print_Poly(self, poly):
++        from sympy.core import Add, Mul, Pow
+         cls = poly.__class__.__name__
+-        expr = self._print(poly.as_expr())
++        terms = list(poly.terms())
++        terms.sort(key=lambda term: term[0], reverse=True)  # sort terms by degree
++        expr = Add(*[Mul(coeff, Pow(poly.gen, sum(term))) for term, coeff in terms])
+         gens = list(map(self._print, poly.gens))
+         domain = "domain=%s" % self._print(poly.get_domain())
+ 
+-        args = ", ".join([expr] + gens + [domain])
++        args = ", ".join([str(expr)] + gens + [domain])
+         if cls in accepted_latex_functions:
+             tex = r"\%s {\left (%s \right )}" % (cls, args)
+         else:
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/latex.py b/sympy/printing/latex.py
+index 737e16cc74..b33d736797 100644
+--- a/sympy/printing/latex.py
++++ b/sympy/printing/latex.py
+@@ -1853,12 +1853,15 @@ def _print_PolynomialRingBase(self, expr):
+         return r"%s%s\left[%s\right]" % (inv, domain, symbols)
+ 
+     def _print_Poly(self, poly):
++from sympy.core import Add, Mul, Pow
+         cls = poly.__class__.__name__
+-        expr = self._print(poly.as_expr())
++terms = list(poly.terms())
++terms.sort(key=lambda term: term[0], reverse=True)
++expr = Add(*[Mul(coeff, Pow(poly.gen, sum(term))) for term, coeff in terms])
+         gens = list(map(self._print, poly.gens))
+         domain = "domain=%s" % self._print(poly.get_domain())
+ 
+-        args = ", ".join([expr] + gens + [domain])
++args = ', '.join([str(expr)] + gens + [domain])
+         if cls in accepted_latex_functions:
+             tex = r"\%s {\left (%s \right )}" % (cls, args)
+         else:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,43 @@
+=== Original Patch ===
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index ea51912e8b..1481481d4e 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1171,6 +1171,10 @@ class Query(BaseExpression):
+                 raise ValueError("Cannot use None as a query value")
+             return lhs.get_lookup('isnull')(lhs, True)
+ 
++        # Ensure __isnull lookup is used with a boolean value.
++        if lookup_name == 'isnull' and not isinstance(rhs, bool):
++            raise ValueError("The '__isnull' lookup only accepts boolean values.")
++
+         # For Oracle '' is equivalent to null. The check must be done at this
+         # stage because join promotion can't be done in the compiler. Using
+         # DEFAULT_DB_ALIAS isn't nice but it's the best that can be done here.
+
+=== Fixed Patch ===
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index ea51912e8b..1481481d4e 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1171,6 +1171,10 @@ class Query(BaseExpression):
+                 raise ValueError("Cannot use None as a query value")
+             return lhs.get_lookup('isnull')(lhs, True)
+ 
++        # Ensure __isnull lookup is used with a boolean value.
++        if lookup_name == 'isnull' and not isinstance(rhs, bool):
++raise ValueError("The '__isnull' lookup only accepts boolean values.")
++
+         # For Oracle '' is equivalent to null. The check must be done at this
+         # stage because join promotion can't be done in the compiler. Using
+         # DEFAULT_DB_ALIAS isn't nice but it's the best that can be done here.
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: The '__isnull' lookup only accepts boolean values. ---------------------------------------------------------------------- Ran 40 tests in 0.191s FAILED (errors=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 2f72480fbd27896c986c45193e1603e35c0b19a7 tests/lookup/models.py tests/lookup/tests.py Updated 2 paths from 5facf0d517
+Prevent using __isnull lookup with non-boolean value.
+__isnull should not allow for non-boolean values. Using truthy/falsey doesn't promote INNER JOIN to an OUTER JOIN but works fine for a simple queries. Using non-boolean values is ​undocumented and untested. IMO we should raise an error for non-boolean values to avoid confusion and for consistency.
+
+=== Test Verification Results ===
+Tests Passed: False

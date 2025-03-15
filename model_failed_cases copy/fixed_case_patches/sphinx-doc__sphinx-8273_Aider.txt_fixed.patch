@@ -1,0 +1,63 @@
+=== Original Patch ===
+diff --git a/sphinx/builders/manpage.py b/sphinx/builders/manpage.py
+index 4166dece9..67de721d4 100644
+--- a/sphinx/builders/manpage.py
++++ b/sphinx/builders/manpage.py
+@@ -8,7 +8,8 @@
+     :license: BSD, see LICENSE for details.
+ """
+ 
+-from os import path
++import os
++from os import path, makedirs
+ from typing import Any, Dict, List, Set, Tuple, Union
+ 
+ from docutils.frontend import OptionParser
+@@ -80,7 +81,10 @@ class ManualPageBuilder(Builder):
+             docsettings.authors = authors
+             docsettings.section = section
+ 
+-            targetname = '%s.%s' % (name, section)
++            section_dir = path.join(self.outdir, f"man{section}")
++            if not path.exists(section_dir):
++                makedirs(section_dir)
++            targetname = path.join(section_dir, '%s.%s' % (name, section))
+             logger.info(darkgreen(targetname) + ' { ', nonl=True)
+             destination = FileOutput(
+                 destination_path=path.join(self.outdir, targetname),
+
+=== Fixed Patch ===
+diff --git a/sphinx/builders/manpage.py b/sphinx/builders/manpage.py
+index 4166dece9..67de721d4 100644
+--- a/sphinx/builders/manpage.py
++++ b/sphinx/builders/manpage.py
+@@ -8,7 +8,8 @@
+     :license: BSD, see LICENSE for details.
+ """
+ 
+-from os import path
++import os
++from os import path, makedirs
+ from typing import Any, Dict, List, Set, Tuple, Union
+ 
+ from docutils.frontend import OptionParser
+@@ -80,7 +81,10 @@ class ManualPageBuilder(Builder):
+             docsettings.authors = authors
+             docsettings.section = section
+ 
+-            targetname = '%s.%s' % (name, section)
++section_dir = path.join(self.outdir, f'man{section}')
++            if not path.exists(section_dir):
++makedirs(section_dir)
++targetname = path.join(section_dir, '%s.%s' % (name, section))
+             logger.info(darkgreen(targetname) + ' { ', nonl=True)
+             destination = FileOutput(
+                 destination_path=path.join(self.outdir, targetname),
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

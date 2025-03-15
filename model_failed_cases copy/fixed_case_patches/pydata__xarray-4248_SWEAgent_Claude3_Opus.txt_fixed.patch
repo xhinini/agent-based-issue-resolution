@@ -1,0 +1,96 @@
+=== Original Patch ===
+diff --git a/reproduce.py b/reproduce.py
+new file mode 100644
+index 00000000..333cf289
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,23 @@
++import xarray as xr
++import numpy as np
++
++x = np.arange(988)
++y = np.arange(822) 
++time = np.array(['2023-01-01T00:00', '2023-01-02T00:00', '2023-01-03T00:00'], dtype='datetime64[ns]')
++
++rainfall_data = np.random.rand(3, 822, 988)
++max_temp_data = np.random.rand(3, 822, 988) * 40
++
++ds = xr.Dataset(
++    data_vars=dict(
++        rainfall=(["time", "y", "x"], rainfall_data, {"units": "mm"}),
++        max_temp=(["time", "y", "x"], max_temp_data, {"units": "deg C"}),
++    ),
++    coords=dict(
++        x=x,
++        y=y,
++        time=time,
++    ),
++)
++
++print(ds)
+diff --git a/xarray/core/formatting.py b/xarray/core/formatting.py
+index 28eaae5f..3e307122 100644
+--- a/xarray/core/formatting.py
++++ b/xarray/core/formatting.py
+@@ -283,7 +283,8 @@ def summarize_variable(
+         dims_str = "({}) ".format(", ".join(map(str, var.dims)))
+     else:
+         dims_str = ""
+-    front_str = f"{first_col}{dims_str}{var.dtype} "
++    units_str = f", units: {var.attrs['units']}" if 'units' in var.attrs else ""
++    front_str = f"{first_col}{dims_str}{var.dtype}{units_str} "
+ 
+     values_width = max_width - len(front_str)
+     values_str = inline_variable_array_repr(var, values_width)
+
+=== Fixed Patch ===
+diff --git a/reproduce.py b/reproduce.py
+index 00000000..333cf289
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,23 @@
++import xarray as xr
++import numpy as np
++
++x = np.arange(988)
++y = np.arange(822)
++time = np.array(['2023-01-01T00:00', '2023-01-02T00:00', '2023-01-03T00:00'], dtype='datetime64[ns]')
++
++rainfall_data = np.random.rand(3, 822, 988)
++max_temp_data = np.random.rand(3, 822, 988) * 40
++
++ds = xr.Dataset(
++    data_vars=dict(
++rainfall = ((['time', 'y', 'x'], rainfall_data, {'units': 'mm'}),)
++max_temp = ((['time', 'y', 'x'], max_temp_data, {'units': 'deg C'}),)
++    ),
++    coords=dict(
++x = (x,)
++y = (y,)
++time = (time,)
++    ),
++)
++
++print(ds)
+diff --git a/xarray/core/formatting.py b/xarray/core/formatting.py
+index 28eaae5f..3e307122 100644
+--- a/xarray/core/formatting.py
++++ b/xarray/core/formatting.py
+@@ -283,7 +283,8 @@ def summarize_variable(
+         dims_str = "({}) ".format(", ".join(map(str, var.dims)))
+     else:
+         dims_str = ""
+-    front_str = f"{first_col}{dims_str}{var.dtype} "
++units_str = f', units: {var.attrs['units']}' if 'units' in var.attrs else ''
++front_str = f'{first_col}{dims_str}{var.dtype}{units_str} '
+ 
+     values_width = max_width - len(front_str)
+     values_str = inline_variable_array_repr(var, values_width)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

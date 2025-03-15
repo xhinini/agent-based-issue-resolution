@@ -1,0 +1,41 @@
+=== Original Patch ===
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index a7c16c4bd8..290cf6da8a 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -1201,6 +1201,10 @@ class QuerySet:
+         if self.query.extra_order_by or self.query.order_by:
+             return True
+         elif self.query.default_ordering and self.query.get_meta().ordering:
++            # Ensure that ordering from parent model's Meta class is applied
++            ordering = self.query.get_meta().ordering
++            if ordering:
++                self.query.add_ordering(*ordering)
+             return True
+         else:
+             return False
+
+=== Fixed Patch ===
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index a7c16c4bd8..290cf6da8a 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -1201,6 +1201,10 @@ class QuerySet:
+         if self.query.extra_order_by or self.query.order_by:
+             return True
+         elif self.query.default_ordering and self.query.get_meta().ordering:
++            # Ensure that ordering from parent model's Meta class is applied
++ordering = self.query.get_meta().ordering
++            if ordering:
++self.query.add_ordering(*ordering)
+             return True
+         else:
+             return False
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: Sequences differ: <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> != [<Parent: Parent object (2)>, <Parent: Parent object (1)>] First differing element 0: <Parent: Parent object (1)> <Parent: Parent object (2)> - <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> ? ----------                         ^                            ^   - + [<Parent: Parent object (2)>, <Parent: Parent object (1)>] ?                          ^                            ^ ---------------------------------------------------------------------- Ran 34 tests in 0.071s FAILED (failures=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application model_inheritance Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: auth, contenttypes, messages, model_inheritance, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Creating table model_inheritance_worker Creating table model_inheritance_student Creating table model_inheritance_post Creating table model_inheritance_comment Creating table model_inheritance_link Creating table model_inheritance_chef Creating table model_inheritance_place Creating table my_restaurant Creating table model_inheritance_italianrestaurant Creating table model_inheritance_supplier Creating table model_inheritance_parkinglot Creating table model_inheritance_title Creating table model_inheritance_mixinmodel Creating table model_inheritance_base Creating table model_inheritance_subbase Creating table model_inheritance_grandparent Creating table model_inheritance_parent Creating table model_inheritance_child Creating table model_inheritance_grandchild Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout 142ab6846ac09d6d401e26fc8b6b988a583ac0f5 tests/model_inheritance/models.py tests/model_inheritance/tests.py Updated 2 paths from d12a79a5db
+
+=== Test Verification Results ===
+Tests Passed: False

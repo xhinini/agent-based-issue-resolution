@@ -1,0 +1,89 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index e16ab8ce5..cce78b27c 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1552,6 +1552,14 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+         if sig is None:
+             return None
+ 
++        # Remove *args and **kwargs from the signature if autodoc_typehints is set to "description"
++        if self.config.autodoc_typehints == "description":
++            parameters = [
++                param for param in sig.parameters.values()
++                if param.kind not in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
++            ]
++            sig = sig.replace(parameters=parameters)
++
+         return stringify_signature(sig, show_return_annotation=False, **kwargs)
+ 
+     def _find_signature(self) -> Tuple[str, str]:
+diff --git a/sphinx/ext/autodoc/directive.py b/sphinx/ext/autodoc/directive.py
+index be2248320..25f81fb14 100644
+--- a/sphinx/ext/autodoc/directive.py
++++ b/sphinx/ext/autodoc/directive.py
+@@ -157,4 +157,15 @@ class AutodocDirective(SphinxDirective):
+             self.state.document.settings.record_dependencies.add(fn)
+ 
+         result = parse_generated_content(self.state, params.result, documenter)
++
++        # Remove duplicated *args and **kwargs from the result if autodoc_typehints is set to "description"
++        if self.config.autodoc_typehints == "description":
++            for node in result:
++                if isinstance(node, nodes.field_list):
++                    fields = []
++                    for field in node:
++                        if field[0].astext() not in ('*args', '**kwargs'):
++                            fields.append(field)
++                    node[:] = fields
++
+         return result
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index e16ab8ce5..cce78b27c 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1552,6 +1552,14 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+         if sig is None:
+             return None
+ 
++        # Remove *args and **kwargs from the signature if autodoc_typehints is set to "description"
++        if self.config.autodoc_typehints == "description":
++            parameters = [
++                param for param in sig.parameters.values()
++                if param.kind not in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
++            ]
++sig = sig.replace(parameters=parameters)
++
+         return stringify_signature(sig, show_return_annotation=False, **kwargs)
+ 
+     def _find_signature(self) -> Tuple[str, str]:
+diff --git a/sphinx/ext/autodoc/directive.py b/sphinx/ext/autodoc/directive.py
+index be2248320..25f81fb14 100644
+--- a/sphinx/ext/autodoc/directive.py
++++ b/sphinx/ext/autodoc/directive.py
+@@ -157,4 +157,15 @@ class AutodocDirective(SphinxDirective):
+             self.state.document.settings.record_dependencies.add(fn)
+ 
+         result = parse_generated_content(self.state, params.result, documenter)
++
++        # Remove duplicated *args and **kwargs from the result if autodoc_typehints is set to "description"
++        if self.config.autodoc_typehints == "description":
++            for node in result:
++                if isinstance(node, nodes.field_list):
++fields = []
++                    for field in node:
++                        if field[0].astext() not in ('*args', '**kwargs'):
++fields.append(field)
++node[:] = fields
++
+         return result
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

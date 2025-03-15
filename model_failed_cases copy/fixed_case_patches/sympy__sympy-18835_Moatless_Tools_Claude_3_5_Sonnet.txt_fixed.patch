@@ -1,0 +1,45 @@
+=== Original Patch ===
+diff --git a/sympy/utilities/iterables.py b/sympy/utilities/iterables.py
+index d96e76263b..4294c968ff 100644
+--- a/sympy/utilities/iterables.py
++++ b/sympy/utilities/iterables.py
+@@ -2109,7 +2109,10 @@ def uniq(seq, result=None):
+     try:
+         seen = set()
+         result = result or []
++        initial_size = len(seq)
+         for i, s in enumerate(seq):
++            if len(seq) != initial_size:
++                raise RuntimeError("sequence changed size during iteration")
+             if not (s in seen or seen.add(s)):
+                 yield s
+     except TypeError:
+
+=== Fixed Patch ===
+diff --git a/sympy/utilities/iterables.py b/sympy/utilities/iterables.py
+index d96e76263b..4294c968ff 100644
+--- a/sympy/utilities/iterables.py
++++ b/sympy/utilities/iterables.py
+@@ -2109,7 +2109,10 @@ def uniq(seq, result=None):
+     try:
+         seen = set()
+         result = result or []
++initial_size = len(seq)
+         for i, s in enumerate(seq):
++            if len(seq) != initial_size:
++raise RuntimeError('sequence changed size during iteration')
+             if not (s in seen or seen.add(s)):
+                 yield s
+     except TypeError:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+except TypeError:
+When you iterate over a dictionary or set and try to modify it while doing so you get an error from Python:
+RuntimeError: dictionary changed size during iteration
+It would be good to do the same thing from within `uniq` because the output will silently be wrong if you modify a passed list:
+I think this would entail recording the size at the start and then checking the size and raising a similar RuntimeError if the size changes.
+
+=== Test Verification Results ===
+Tests Passed: False

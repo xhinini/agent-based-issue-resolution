@@ -1,0 +1,55 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 62631f7ff..9ac641d91 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -109,12 +109,14 @@ def exclude_members_option(arg: Any) -> Union[object, Set[str]]:
+     return {x.strip() for x in arg.split(',') if x.strip()}
+ 
+ 
+-def inherited_members_option(arg: Any) -> Union[object, Set[str]]:
+-    """Used to convert the :members: option to auto directives."""
++def inherited_members_option(arg: Any) -> Union[object, List[str]]:
++    """Used to convert the :inherited-members: option to auto directives."""
+     if arg in (None, True):
+         return 'object'
++    elif arg is False:
++        return []
+     else:
+-        return arg
++        return [x.strip() for x in arg.split(',') if x.strip()]
+ 
+ 
+ def member_order_option(arg: Any) -> Optional[str]:
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 62631f7ff..9ac641d91 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -109,12 +109,14 @@ def exclude_members_option(arg: Any) -> Union[object, Set[str]]:
+     return {x.strip() for x in arg.split(',') if x.strip()}
+ 
+ 
+-def inherited_members_option(arg: Any) -> Union[object, Set[str]]:
+-    """Used to convert the :members: option to auto directives."""
++def inherited_members_option(arg: Any) -> Union[object, List[str]]:
++'Used to convert the :inherited-members: option to auto directives.'
+     if arg in (None, True):
+         return 'object'
++    elif arg is False:
++return []
+     else:
+-        return arg
++return [x.strip() for x in arg.split(',') if x.strip()]
+ 
+ 
+ def member_order_option(arg: Any) -> Optional[str]:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

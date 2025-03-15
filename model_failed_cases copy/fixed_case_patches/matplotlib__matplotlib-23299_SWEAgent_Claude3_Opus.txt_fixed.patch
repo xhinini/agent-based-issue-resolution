@@ -1,0 +1,46 @@
+=== Original Patch ===
+diff --git a/reproduce_bug.py b/reproduce_bug.py
+new file mode 100644
+index 0000000000..bc22cb287a
+--- /dev/null
++++ b/reproduce_bug.py
+@@ -0,0 +1,12 @@
++import matplotlib.pyplot as plt
++from matplotlib import get_backend, rc_context
++
++# fig1 = plt.figure()  # <- UNCOMMENT THIS LINE AND IT WILL WORK
++plt.ion()            # <- ALTERNATIVELY, UNCOMMENT THIS LINE AND IT WILL ALSO WORK
++with rc_context():
++    fig2 = plt.figure()
++before = f'{id(plt._pylab_helpers.Gcf)} {plt._pylab_helpers.Gcf.figs!r}'
++get_backend()
++after = f'{id(plt._pylab_helpers.Gcf)} {plt._pylab_helpers.Gcf.figs!r}'
++
++assert before == after, '\n' + before + '\n' + after
+
+=== Fixed Patch ===
+diff --git a/reproduce_bug.py b/reproduce_bug.py
+index 0000000000..bc22cb287a
+--- /dev/null
++++ b/reproduce_bug.py
+@@ -0,0 +1,12 @@
++import matplotlib.pyplot as plt
++from matplotlib import get_backend, rc_context
++
++# fig1 = plt.figure()  # <- UNCOMMENT THIS LINE AND IT WILL WORK
++plt.ion()
++with rc_context():
++fig2 = plt.figure()
++before = f'{id(plt._pylab_helpers.Gcf)} {plt._pylab_helpers.Gcf.figs!r}'
++get_backend()
++after = f'{id(plt._pylab_helpers.Gcf)} {plt._pylab_helpers.Gcf.figs!r}'
++
++assert before == after, '\n' + before + '\n' + after
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

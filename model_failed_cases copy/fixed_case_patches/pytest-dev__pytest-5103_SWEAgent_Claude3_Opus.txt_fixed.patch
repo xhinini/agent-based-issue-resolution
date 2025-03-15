@@ -1,0 +1,169 @@
+=== Original Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 2903b8995..8f813ba0a 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -812,6 +812,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         return res, self.explanation_param(self.display(res))
+ 
+     def visit_Assert(self, assert_):
++        print("In visit_Assert")
+         """Return the AST statements to replace the ast.Assert instance.
+ 
+         This rewrites the test of an assertion to provide
+@@ -820,6 +821,29 @@ class AssertionRewriter(ast.NodeVisitor):
+         the expression is false.
+ 
+         """
++        if isinstance(assert_.test, ast.GeneratorExp):
++            print("Rewriting generator expression")
++            # Unroll generator expression into for loop
++            target = ast.Name("__gen_expr", ast.Store()) 
++            iter_node = assert_.test.generators[0].iter
++            assign_genexpr = ast.Assign([target], assert_.test)
++            loop_body = [ast.Assert(ast.Call(ast.Name("next", ast.Load()), [target], []), assert_.msg)]
++            for_loop = ast.For(assert_.test.generators[0].target, iter_node, loop_body, [])
++            return [assign_genexpr, for_loop]
++        
++        if isinstance(assert_.test, ast.ListComp):
++            print("Rewriting list comprehension")
++            # Unroll list comprehension into for loop
++            target = ast.Name("__list_comp", ast.Store())
++            iter_node = assert_.test.generators[0].iter
++            assign_listcomp = ast.Assign([target], ast.List([], ast.Load()))
++            append_attr = ast.Attribute(target, 'append', ast.Load())
++            append_call = ast.Call(append_attr, [assert_.test.elt], [])
++            loop_body = [ast.Expr(append_call)]
++            for_loop = ast.For(assert_.test.generators[0].target, iter_node, loop_body, [])
++            assert_list = ast.Assert(target, assert_.msg)
++            return [assign_listcomp, for_loop, assert_list]
++
+         if isinstance(assert_.test, ast.Tuple) and len(assert_.test.elts) >= 1:
+             from _pytest.warning_types import PytestAssertRewriteWarning
+             import warnings
+@@ -877,6 +901,15 @@ class AssertionRewriter(ast.NodeVisitor):
+         for stmt in self.statements:
+             set_location(stmt, assert_.lineno, assert_.col_offset)
+         return self.statements
++        # Clear temporary variables by setting them to None.
++        if self.variables:
++            variables = [ast.Name(name, ast.Store()) for name in self.variables]
++            clear = ast.Assign(variables, _NameConstant(None))
++            self.statements.append(clear)
++        # Fix line numbers.
++        for stmt in self.statements:
++            set_location(stmt, assert_.lineno, assert_.col_offset)
++        return self.statements
+ 
+     def warn_about_none_ast(self, node, module_path, lineno):
+         """
+diff --git a/test_all_any.py b/test_all_any.py
+new file mode 100644
+index 000000000..c9dfe4ee9
+--- /dev/null
++++ b/test_all_any.py
+@@ -0,0 +1,15 @@
++def is_even(number):
++    return number % 2 == 0
++
++def test_all_even_generator():
++    even_stevens = list(range(1,100,2))
++    assert all(is_even(number) for number in even_stevens)
++
++def test_all_even_list_comprehension():
++    even_stevens = list(range(1,100,2))
++    assert all([is_even(number) for number in even_stevens])
++
++def test_all_even_for_loop():
++    even_stevens = list(range(1,100,2))
++    for number in even_stevens:
++        assert is_even(number)
+
+=== Fixed Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 2903b8995..8f813ba0a 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -812,6 +812,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         return res, self.explanation_param(self.display(res))
+ 
+     def visit_Assert(self, assert_):
++print('In visit_Assert')
+         """Return the AST statements to replace the ast.Assert instance.
+ 
+         This rewrites the test of an assertion to provide
+@@ -820,6 +821,29 @@ class AssertionRewriter(ast.NodeVisitor):
+         the expression is false.
+ 
+         """
++        if isinstance(assert_.test, ast.GeneratorExp):
++print('Rewriting generator expression')
++            # Unroll generator expression into for loop
++target = ast.Name('__gen_expr', ast.Store())
++iter_node = assert_.test.generators[0].iter
++assign_genexpr = ast.Assign([target], assert_.test)
++loop_body = [ast.Assert(ast.Call(ast.Name('next', ast.Load()), [target], []), assert_.msg)]
++for_loop = ast.For(assert_.test.generators[0].target, iter_node, loop_body, [])
++return [assign_genexpr, for_loop]
++        
++        if isinstance(assert_.test, ast.ListComp):
++print('Rewriting list comprehension')
++            # Unroll list comprehension into for loop
++target = ast.Name('__list_comp', ast.Store())
++iter_node = assert_.test.generators[0].iter
++assign_listcomp = ast.Assign([target], ast.List([], ast.Load()))
++append_attr = ast.Attribute(target, 'append', ast.Load())
++append_call = ast.Call(append_attr, [assert_.test.elt], [])
++loop_body = [ast.Expr(append_call)]
++for_loop = ast.For(assert_.test.generators[0].target, iter_node, loop_body, [])
++assert_list = ast.Assert(target, assert_.msg)
++return [assign_listcomp, for_loop, assert_list]
++
+         if isinstance(assert_.test, ast.Tuple) and len(assert_.test.elts) >= 1:
+             from _pytest.warning_types import PytestAssertRewriteWarning
+             import warnings
+@@ -877,6 +901,15 @@ class AssertionRewriter(ast.NodeVisitor):
+         for stmt in self.statements:
+             set_location(stmt, assert_.lineno, assert_.col_offset)
+         return self.statements
++        # Clear temporary variables by setting them to None.
++        if self.variables:
++variables = [ast.Name(name, ast.Store()) for name in self.variables]
++clear = ast.Assign(variables, _NameConstant(None))
++self.statements.append(clear)
++        # Fix line numbers.
++        for stmt in self.statements:
++set_location(stmt, assert_.lineno, assert_.col_offset)
++return self.statements
+ 
+     def warn_about_none_ast(self, node, module_path, lineno):
+         """
+diff --git a/test_all_any.py b/test_all_any.py
+index 000000000..c9dfe4ee9
+--- /dev/null
++++ b/test_all_any.py
+@@ -0,0 +1,15 @@
++def is_even(number):
++return number % 2 == 0
++
++def test_all_even_generator():
++even_stevens = list(range(1, 100, 2))
++assert all((is_even(number) for number in even_stevens))
++
++def test_all_even_list_comprehension():
++even_stevens = list(range(1, 100, 2))
++assert all([is_even(number) for number in even_stevens])
++
++def test_all_even_for_loop():
++even_stevens = list(range(1, 100, 2))
++    for number in even_stevens:
++assert is_even(number)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Sometime I need to assert some predicate on all of an iterable, and for that the builtin functions `all`/`any` are great - but the failure messages aren't useful at all!
+test_all_any.py:7: AssertionError
+
+=== Test Verification Results ===
+Tests Passed: False

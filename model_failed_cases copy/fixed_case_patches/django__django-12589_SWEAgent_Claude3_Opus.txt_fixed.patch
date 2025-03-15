@@ -1,0 +1,121 @@
+=== Original Patch ===
+diff --git a/tests/model_fields/test_manytomanyfield.py b/tests/model_fields/test_manytomanyfield.py
+index 5724fe9384..55a030e959 100644
+--- a/tests/model_fields/test_manytomanyfield.py
++++ b/tests/model_fields/test_manytomanyfield.py
+@@ -71,3 +71,47 @@ class ManyToManyFieldDBTests(TestCase):
+         related_obj = ManyToMany.objects.create()
+         obj.m2m.add(related_obj)
+         self.assertEqual(obj._meta.get_field('m2m').value_from_object(obj), [related_obj])
++    @isolate_apps('model_fields')
++    def test_group_by_annotation_ambiguous_column(self):
++        from django.db import connection
++        from django.db.models import Count, Q, Subquery
++        from django.db.utils import ProgrammingError
++        
++        class A(models.Model):
++            bs = models.ManyToManyField('B', related_name="a", through="AB")
++        
++        class B(models.Model):
++            pass
++        
++        class AB(models.Model):
++            a = models.ForeignKey(A, on_delete=models.CASCADE, related_name="ab_a")
++            b = models.ForeignKey(B, on_delete=models.CASCADE, related_name="ab_b")
++            status = models.IntegerField()
++        
++        class C(models.Model):
++            a = models.ForeignKey(
++                A,
++                null=True,
++                blank=True,
++                on_delete=models.SET_NULL,
++                related_name="c",
++            )
++            status = models.IntegerField()
++        
++        with connection.constraint_checks_disabled():
++            with connection.schema_editor() as editor:
++                editor.create_model(A)
++                editor.create_model(B)
++                editor.create_model(AB)
++                editor.create_model(C)
++        ab_query = AB.objects.filter(a=models.OuterRef("pk"), b=1)
++        filter_conditions = Q(pk=1) | Q(ab_a__b=1)
++        query = A.objects.filter(filter_conditions).annotate(
++            status=Subquery(ab_query.values("status")),
++            c_count=Count("c"),
++        )
++        answer = query.values("status").annotate(total_count=Count("status"))
++        
++        with self.assertRaises(ProgrammingError):
++            print(answer.query)
++            print(answer)
+
+=== Fixed Patch ===
+diff --git a/tests/model_fields/test_manytomanyfield.py b/tests/model_fields/test_manytomanyfield.py
+index 5724fe9384..55a030e959 100644
+--- a/tests/model_fields/test_manytomanyfield.py
++++ b/tests/model_fields/test_manytomanyfield.py
+@@ -71,3 +71,47 @@ class ManyToManyFieldDBTests(TestCase):
+         related_obj = ManyToMany.objects.create()
+         obj.m2m.add(related_obj)
+         self.assertEqual(obj._meta.get_field('m2m').value_from_object(obj), [related_obj])
++    @isolate_apps('model_fields')
++    def test_group_by_annotation_ambiguous_column(self):
++from django.db import connection
++from django.db.models import Count, Q, Subquery
++from django.db.utils import ProgrammingError
++        
++        class A(models.Model):
++bs = models.ManyToManyField('B', related_name='a', through='AB')
++        
++        class B(models.Model):
++pass
++        
++        class AB(models.Model):
++a = models.ForeignKey(A, on_delete=models.CASCADE, related_name='ab_a')
++b = models.ForeignKey(B, on_delete=models.CASCADE, related_name='ab_b')
++status = models.IntegerField()
++        
++        class C(models.Model):
++            a = models.ForeignKey(
++(A,)
++null = (True,)
++blank = (True,)
++on_delete = (models.SET_NULL,)
++related_name = ('c',)
++            )
++status = models.IntegerField()
++        
++        with connection.constraint_checks_disabled():
++            with connection.schema_editor() as editor:
++editor.create_model(A)
++editor.create_model(B)
++editor.create_model(AB)
++editor.create_model(C)
++ab_query = AB.objects.filter(a=models.OuterRef('pk'), b=1)
++filter_conditions = Q(pk=1) | Q(ab_a__b=1)
++        query = A.objects.filter(filter_conditions).annotate(
++status = (Subquery(ab_query.values('status')),)
++c_count = (Count('c'),)
++        )
++answer = query.values('status').annotate(total_count=Count('status'))
++        
++        with self.assertRaises(ProgrammingError):
++print(answer.query)
++print(answer)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+sqlite3.OperationalError: ambiguous column name: rating The above exception was the direct cause of the following exception:
+django.db.utils.OperationalError: ambiguous column name: rating ---------------------------------------------------------------------- Ran 67 tests in 0.176s FAILED (errors=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application aggregation Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: aggregation, auth, contenttypes, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Creating table aggregation_author Creating table aggregation_publisher Creating table aggregation_book Creating table aggregation_store Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout 895f28f9cbed817c00ab68770433170d83132d90 tests/aggregation/models.py tests/aggregation/tests.py Updated 2 paths from d7dee2ad87
+Django 3.0: "GROUP BY" clauses error with tricky field annotation
+null=True,
+on_delete=models.SET_NULL,
+On Django 3.0.4 we have an error
+django.db.utils.ProgrammingError: column reference "status" is ambiguous
+
+=== Test Verification Results ===
+Tests Passed: False

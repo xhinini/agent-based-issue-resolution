@@ -1,0 +1,78 @@
+=== Original Patch ===
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 84960d77e1..1db17ac8aa 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1055,7 +1055,8 @@ class Subquery(Expression):
+         external_cols = self.query.get_external_cols()
+         if any(col.possibly_multivalued for col in external_cols):
+             return [self]
+-        return external_cols
++        # Ensure the subquery itself is included in the GROUP BY clause to avoid ambiguity
++        return [self] + external_cols
+ 
+ 
+ class Exists(Subquery):
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index 5fdee3ff37..ea86fd66bf 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -1107,6 +1107,8 @@ class QuerySet:
+                     clone.query.group_by = True
+                 else:
+                     clone.query.set_group_by()
++                # Ensure the annotation itself is included in the GROUP BY clause to avoid ambiguity
++                clone.query.add_annotation(annotation, alias, is_summary=True)
+                 break
+ 
+         return clone
+
+=== Fixed Patch ===
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 84960d77e1..1db17ac8aa 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1055,7 +1055,8 @@ class Subquery(Expression):
+         external_cols = self.query.get_external_cols()
+         if any(col.possibly_multivalued for col in external_cols):
+             return [self]
+-        return external_cols
++        # Ensure the subquery itself is included in the GROUP BY clause to avoid ambiguity
++return [self] + external_cols
+ 
+ 
+ class Exists(Subquery):
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index 5fdee3ff37..ea86fd66bf 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -1107,6 +1107,8 @@ class QuerySet:
+                     clone.query.group_by = True
+                 else:
+                     clone.query.set_group_by()
++                # Ensure the annotation itself is included in the GROUP BY clause to avoid ambiguity
++clone.query.add_annotation(annotation, alias, is_summary=True)
+                 break
+ 
+         return clone
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: invalid literal for int() with base 10: 'combined_ages' ====================================================================== ERROR: test_aggregation_subquery_annotation_values_collision (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+sqlite3.OperationalError: ambiguous column name: rating The above exception was the direct cause of the following exception:
+django.db.utils.OperationalError: ambiguous column name: rating ====================================================================== ERROR: test_complex_values_aggregation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+ValueError: invalid literal for int() with base 10: 'books_per_rating' ====================================================================== ERROR: test_values_aggregation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+ValueError: invalid literal for int() with base 10: 'books_per_rating' ====================================================================== FAIL: test_aggregate_annotation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+AssertionError: {'num_authors': 10, 'num_authors__avg': 0.0} != {'num_authors__avg': 1.66} - {'num_authors': 10, 'num_authors__avg': 0.0} + {'num_authors__avg': 1.66} ====================================================================== FAIL: test_aggregation_subquery_annotation (aggregation.tests.AggregateTestCase) Subquery annotations are excluded from the GROUP BY if they are ----------------------------------------------------------------------
+AssertionError: 3 != 2 ====================================================================== FAIL: test_aggregation_subquery_annotation_multivalued (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+AssertionError: 10 != 9 ====================================================================== FAIL: test_more_aggregation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+AssertionError: {'num_authors': 0, 'rating__avg': None} != {'rating__avg': 4.25} - {'num_authors': 0, 'rating__avg': None} + {'rating__avg': 4.25} ---------------------------------------------------------------------- Ran 67 tests in 0.154s FAILED (failures=4, errors=4) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application aggregation Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: aggregation, auth, contenttypes, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Creating table aggregation_author Creating table aggregation_publisher Creating table aggregation_book Creating table aggregation_store Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout 895f28f9cbed817c00ab68770433170d83132d90 tests/aggregation/models.py tests/aggregation/tests.py Updated 2 paths from d7dee2ad87
+Django 3.0: "GROUP BY" clauses error with tricky field annotation
+null=True,
+on_delete=models.SET_NULL,
+On Django 3.0.4 we have an error
+django.db.utils.ProgrammingError: column reference "status" is ambiguous
+
+=== Test Verification Results ===
+Tests Passed: False

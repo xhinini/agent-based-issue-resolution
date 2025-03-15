@@ -1,0 +1,49 @@
+=== Original Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 56581f2..b0795a2 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -112,7 +112,10 @@ class SQLCompiler:
+         ref_sources = {
+             expr.source for expr in expressions if isinstance(expr, Ref)
+         }
+-        for expr, _, _ in select:
++        for expr, _, alias in select:
++            if alias in self.query.annotations:
++                # Avoid adding subquery annotations directly to GROUP BY clause.
++                continue
+             # Skip members of the select clause that are already included
+             # by reference.
+             if expr in ref_sources:
+
+=== Fixed Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 56581f2..b0795a2 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -112,7 +112,10 @@ class SQLCompiler:
+         ref_sources = {
+             expr.source for expr in expressions if isinstance(expr, Ref)
+         }
+-        for expr, _, _ in select:
++        for expr, _, alias in select:
++            if alias in self.query.annotations:
++                # Avoid adding subquery annotations directly to GROUP BY clause.
++continue
+             # Skip members of the select clause that are already included
+             # by reference.
+             if expr in ref_sources:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+sqlite3.OperationalError: ambiguous column name: rating The above exception was the direct cause of the following exception:
+django.db.utils.OperationalError: ambiguous column name: rating ---------------------------------------------------------------------- Ran 67 tests in 0.176s FAILED (errors=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 895f28f9cbed817c00ab68770433170d83132d90 tests/aggregation/models.py tests/aggregation/tests.py Updated 2 paths from d7dee2ad87
+Django 3.0: "GROUP BY" clauses error with tricky field annotation
+null=True,
+on_delete=models.SET_NULL,
+On Django 3.0.4 we have an error
+django.db.utils.ProgrammingError: column reference "status" is ambiguous
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,37 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index dc413b5c2..2caf31bb2 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1647,7 +1647,7 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+         elif self.options.inherited_members:
+             return False, list(members.values())
+         else:
+-            return False, [m for m in members.values() if m.class_ == self.object]
++            return False, [m for m in members.values() if m.class_ == self.object or m.class_ is None]
+ 
+     def get_doc(self, encoding: str = None, ignore: int = None) -> Optional[List[List[str]]]:
+         if encoding is not None:
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index dc413b5c2..2caf31bb2 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1647,7 +1647,7 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+         elif self.options.inherited_members:
+             return False, list(members.values())
+         else:
+-            return False, [m for m in members.values() if m.class_ == self.object]
++return (False, [m for m in members.values() if m.class_ == self.object or m.class_ is None])
+ 
+     def get_doc(self, encoding: str = None, ignore: int = None) -> Optional[List[List[str]]]:
+         if encoding is not None:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+`Bar.attr1` is not documented. It will be shown if I give `:undoc-members:` option to the autoclass directive call. It seems the attribute is treated as undocumented.
+
+=== Test Verification Results ===
+Tests Passed: False

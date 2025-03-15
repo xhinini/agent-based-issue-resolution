@@ -1,0 +1,61 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index c268a56724..9f5daec623 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -1175,7 +1175,19 @@ def get_backend():
+     --------
+     matplotlib.use
+     """
+-    return rcParams['backend']
++    from matplotlib import pyplot as plt
++    from matplotlib._pylab_helpers import Gcf
++
++    # Store the current figures
++    current_figs = Gcf.figs.copy()
++
++    backend = rcParams['backend']
++
++    # Restore the figures
++    Gcf.figs.clear()
++    Gcf.figs.update(current_figs)
++
++    return backend
+ 
+ 
+ def interactive(b):
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index c268a56724..9f5daec623 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -1175,7 +1175,19 @@ def get_backend():
+     --------
+     matplotlib.use
+     """
+-    return rcParams['backend']
++from matplotlib import pyplot as plt
++from matplotlib._pylab_helpers import Gcf
++
++    # Store the current figures
++current_figs = Gcf.figs.copy()
++
++backend = rcParams['backend']
++
++    # Restore the figures
++Gcf.figs.clear()
++Gcf.figs.update(current_figs)
++
++return backend
+ 
+ 
+ def interactive(b):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

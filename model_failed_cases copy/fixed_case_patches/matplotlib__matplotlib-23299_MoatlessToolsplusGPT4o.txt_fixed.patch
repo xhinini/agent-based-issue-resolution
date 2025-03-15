@@ -1,0 +1,67 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index c268a56724..ee4a8d420e 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -1175,7 +1175,8 @@ def get_backend():
+     --------
+     matplotlib.use
+     """
+-    return rcParams['backend']
++    backend = rcParams['backend']
++    return backend
+ 
+ 
+ def interactive(b):
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index e3c66ea67c..ab054d4026 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -868,7 +868,8 @@ def gcf():
+     if manager is not None:
+         return manager.canvas.figure
+     else:
+-        return figure()
++        with matplotlib.rc_context():
++            return figure()
+ 
+ 
+ def fignum_exists(num):
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index c268a56724..ee4a8d420e 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -1175,7 +1175,8 @@ def get_backend():
+     --------
+     matplotlib.use
+     """
+-    return rcParams['backend']
++backend = rcParams['backend']
++return backend
+ 
+ 
+ def interactive(b):
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index e3c66ea67c..ab054d4026 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -868,7 +868,8 @@ def gcf():
+     if manager is not None:
+         return manager.canvas.figure
+     else:
+-        return figure()
++        with matplotlib.rc_context():
++return figure()
+ 
+ 
+ def fignum_exists(num):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

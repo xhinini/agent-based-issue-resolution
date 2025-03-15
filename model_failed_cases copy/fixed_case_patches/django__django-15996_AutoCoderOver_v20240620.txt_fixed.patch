@@ -1,0 +1,70 @@
+=== Original Patch ===
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..870f3cd708 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -121,10 +121,24 @@ class DictionarySerializer(BaseSerializer):
+         return "{%s}" % (", ".join("%s: %s" % (k, v) for k, v in strings)), imports
+ 
+ 
++from enum import _decompose
++
+ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
++        
++        # Decompose the value if it is a combination of flags
++        if hasattr(enum_class, '_decompose'):
++            _, members = _decompose(enum_class, self.value)
++            if len(members) > 1:
++                member_names = " | ".join(f"{enum_class.__name__}.{member.name}" for member in members)
++                return (
++                    f"{module}.{enum_class.__qualname__}[{member_names}]",
++                    {"import %s" % module},
++                )
++        
++        # Fallback to the original behavior for single Enum values
+         return (
+             "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+             {"import %s" % module},
+
+=== Fixed Patch ===
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..870f3cd708 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -121,10 +121,24 @@ class DictionarySerializer(BaseSerializer):
+         return "{%s}" % (", ".join("%s: %s" % (k, v) for k, v in strings)), imports
+ 
+ 
++from enum import _decompose
++
+ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
++        
++        # Decompose the value if it is a combination of flags
++        if hasattr(enum_class, '_decompose'):
++_, members = _decompose(enum_class, self.value)
++            if len(members) > 1:
++member_names = ' | '.join((f'{enum_class.__name__}.{member.name}' for member in members))
++                return (
++(f'{module}.{enum_class.__qualname__}[{member_names}]',)
++({'import %s' % module},)
++                )
++        
++        # Fallback to the original behavior for single Enum values
+         return (
+             "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+             {"import %s" % module},
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: Tuples differ: ('migrations.test_writer.IntFlagEnum[None][32 chars]er'}) != ("migrations.test_writer.IntFlagEnum['A'] [73 chars]er'}) First differing element 0: 'migrations.test_writer.IntFlagEnum[None]' "migrations.test_writer.IntFlagEnum['A'] [37 chars]'B']" - ('migrations.test_writer.IntFlagEnum[None]', {'import migrations.test_writer'}) + ("migrations.test_writer.IntFlagEnum['A'] | " +  "migrations.test_writer.IntFlagEnum['B']", +  {'import migrations.test_writer'}) ---------------------------------------------------------------------- Ran 52 tests in 0.071s FAILED (failures=1) Testing against Django installed in '/testbed/django' Importing application migrations Found 52 test(s). Skipping setup of unused database(s): default, other. System check identified no issues (0 silenced). + git checkout b30c0081d4d8a31ab7dc7f72a4c7099af606ef29 tests/migrations/test_writer.py Updated 1 path from 17623c1b07
+default=re.RegexFlag[None]
+
+=== Test Verification Results ===
+Tests Passed: False

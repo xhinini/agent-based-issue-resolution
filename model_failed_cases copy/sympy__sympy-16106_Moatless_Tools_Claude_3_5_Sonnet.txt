@@ -1,0 +1,124 @@
+# Instance ID: sympy__sympy-16106
+# Model: MoatlessTools+GPT4o
+
+### Original Case Description and Gold Patch
+# INSTANCE_ID: sympy__sympy-16106
+
+### ISSUE TYPE
+new feature
+
+### DESCRIPTION
+mathml printer for IndexedBase required
+Writing an `Indexed` object to MathML fails with a `TypeError` exception: `TypeError: 'Indexed' object is not iterable`:
+
+```
+In [340]: sympy.__version__
+Out[340]: '1.0.1.dev'
+
+In [341]: from sympy.abc import (a, b)
+
+In [342]: sympy.printing.mathml(sympy.IndexedBase(a)[b])
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+<ipython-input-342-b32e493b70d3> in <module>()
+----> 1 sympy.printing.mathml(sympy.IndexedBase(a)[b])
+
+/dev/shm/gerrit/venv/stable-3.5/lib/python3.5/site-packages/sympy/printing/mathml.py in mathml(expr, **settings)
+    442 def mathml(expr, **settings):
+    443     """Returns the MathML representation of expr"""
+--> 444     return MathMLPrinter(settings).doprint(expr)
+    445 
+    446 
+
+/dev/shm/gerrit/venv/stable-3.5/lib/python3.5/site-packages/sympy/printing/mathml.py in doprint(self, expr)
+     36         Prints the expression as MathML.
+     37         """
+---> 38         mathML = Printer._print(self, expr)
+     39         unistr = mathML.toxml()
+     40         xmlbstr = unistr.encode('ascii', 'xmlcharrefreplace')
+
+/dev/shm/gerrit/venv/stable-3.5/lib/python3.5/site-packages/sympy/printing/printer.py in _print(self, expr, *args, **kwargs)
+    255                 printmethod = '_print_' + cls.__name__
+    256                 if hasattr(self, printmethod):
+--> 257                     return getattr(self, printmethod)(expr, *args, **kwargs)
+    258             # Unknown object, fall back to the emptyPrinter.
+    259             return self.emptyPrinter(expr)
+
+/dev/shm/gerrit/venv/stable-3.5/lib/python3.5/site-packages/sympy/printing/mathml.py in _print_Basic(self, e)
+    356     def _print_Basic(self, e):
+    357         x = self.dom.createElement(self.mathml_tag(e))
+--> 358         for arg in e:
+    359             x.appendChild(self._print(arg))
+    360         return x
+
+TypeError: 'Indexed' object is not iterable
+```
+
+It also fails for more complex expressions where at least one element is Indexed.
+
+
+### GOLD_PATCH
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -1271,6 +1271,26 @@ def _print_Lambda(self, e):
+         return x
+ 
+ 
++    def _print_tuple(self, e):
++        x = self.dom.createElement('mfenced')
++        for i in e:
++            x.appendChild(self._print(i))
++        return x
++
++
++    def _print_IndexedBase(self, e):
++        return self._print(e.label)
++
++    def _print_Indexed(self, e):
++        x = self.dom.createElement('msub')
++        x.appendChild(self._print(e.base))
++        if len(e.indices) == 1:
++            x.appendChild(self._print(e.indices[0]))
++            return x
++        x.appendChild(self._print(e.indices))
++        return x
++
++
+ def mathml(expr, printer='content', **settings):
+     """Returns the MathML representation of expr. If printer is presentation then
+      prints Presentation MathML else prints content MathML.
+
+
+### MODEL_OUTPUTS
+
+
+
+
+### Model Generated Patch
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..08e71f9b41 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -115,6 +115,21 @@ def restore_patch(self):
+         Element.writexml = self._Element_writexml_old
+         Text.writexml = self._Text_writexml_old
+ 
++    def _print_Indexed(self, expr):
++        base = self._print(expr.base)
++
++        if len(expr.indices) == 1:
++            indices = self._print(expr.indices[0])
++        else:
++            indices = self.dom.createElement('mrow')
++            for index in expr.indices:
++                indices.appendChild(self._print(index))
++
++        x = self.dom.createElement('msub')
++        x.appendChild(base)
++        x.appendChild(indices)
++        return x
++
+ 
+ class MathMLContentPrinter(MathMLPrinterBase):
+     """Prints an expression to the Content MathML markup language.

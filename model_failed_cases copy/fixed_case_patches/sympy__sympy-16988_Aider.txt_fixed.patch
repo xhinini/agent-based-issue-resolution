@@ -1,0 +1,153 @@
+=== Original Patch ===
+diff --git a/sympy/sets/sets.py b/sympy/sets/sets.py
+index 03cf57a30b..79212a6584 100644
+--- a/sympy/sets/sets.py
++++ b/sympy/sets/sets.py
+@@ -21,6 +21,7 @@
+ from sympy.core.symbol import Symbol, Dummy, _uniquely_named_symbol
+ from sympy.core.sympify import _sympify, sympify, converter
+ from sympy.logic.boolalg import And, Or, Not, true, false
++from sympy import Piecewise
+ from sympy.sets.contains import Contains
+ from sympy.utilities import subsets
+ from sympy.utilities.iterables import sift
+@@ -1066,7 +1067,10 @@ def __new__(cls, *args, **kwargs):
+         evaluate = kwargs.get('evaluate', global_evaluate[0])
+ 
+         # flatten inputs to merge intersections and iterables
+-        args = _sympify(args)
++        args = list(ordered(set(_sympify(args)), Set._infimum_key))
++
++        # Remove duplicates
++        args = list(ordered(set(args), Set._infimum_key))
+ 
+         # Reduce sets using known rules
+         if evaluate:
+@@ -1075,6 +1079,28 @@ def __new__(cls, *args, **kwargs):
+ 
+         args = list(ordered(args, Set._infimum_key))
+ 
++        # Remove duplicates
++        args = list(ordered(set(args), Set._infimum_key))
++
++        if len(args) == 1:
++            return args[0]
++
++        if len(args) == 1:
++            return args[0]
++
++        # Handle specific case where duplicates are present
++        if any(isinstance(arg, FiniteSet) for arg in args):
++            finite_sets = [arg for arg in args if isinstance(arg, FiniteSet)]
++            other_sets = [arg for arg in args if not isinstance(arg, FiniteSet)]
++            if len(finite_sets) > 1:
++                common_elements = set(finite_sets[0])
++                for fs in finite_sets[1:]:
++                    common_elements &= set(fs)
++                if len(common_elements) == 1:
++                    common_element = list(common_elements)[0]
++                    conditions = [Eq(common_element, elem) for elem in finite_sets[0]]
++                    return Piecewise((FiniteSet(common_element), And(*conditions)), (S.EmptySet, True))
++
+         obj = Basic.__new__(cls, *args)
+         obj._argset = frozenset(args)
+         return obj
+@@ -1262,12 +1288,16 @@ def __new__(cls, *args, **kwargs):
+         # flatten inputs to merge intersections and iterables
+         args = _sympify(args)
+ 
++        # Remove duplicates
++        args = list(ordered(set(args), Set._infimum_key))
++
+         # Reduce sets using known rules
+         if evaluate:
+             args = list(cls._new_args_filter(args))
+             return simplify_intersection(args)
+ 
+-        args = list(ordered(args, Set._infimum_key))
++        if len(args) == 1:
++            return args[0]
+ 
+         obj = Basic.__new__(cls, *args)
+         obj._argset = frozenset(args)
+
+=== Fixed Patch ===
+diff --git a/sympy/sets/sets.py b/sympy/sets/sets.py
+index 03cf57a30b..79212a6584 100644
+--- a/sympy/sets/sets.py
++++ b/sympy/sets/sets.py
+@@ -21,6 +21,7 @@
+ from sympy.core.symbol import Symbol, Dummy, _uniquely_named_symbol
+ from sympy.core.sympify import _sympify, sympify, converter
+ from sympy.logic.boolalg import And, Or, Not, true, false
++from sympy import Piecewise
+ from sympy.sets.contains import Contains
+ from sympy.utilities import subsets
+ from sympy.utilities.iterables import sift
+@@ -1066,7 +1067,10 @@ def __new__(cls, *args, **kwargs):
+         evaluate = kwargs.get('evaluate', global_evaluate[0])
+ 
+         # flatten inputs to merge intersections and iterables
+-        args = _sympify(args)
++args = list(ordered(set(_sympify(args)), Set._infimum_key))
++
++        # Remove duplicates
++args = list(ordered(set(args), Set._infimum_key))
+ 
+         # Reduce sets using known rules
+         if evaluate:
+@@ -1075,6 +1079,28 @@ def __new__(cls, *args, **kwargs):
+ 
+         args = list(ordered(args, Set._infimum_key))
+ 
++        # Remove duplicates
++args = list(ordered(set(args), Set._infimum_key))
++
++        if len(args) == 1:
++return args[0]
++
++        if len(args) == 1:
++return args[0]
++
++        # Handle specific case where duplicates are present
++        if any(isinstance(arg, FiniteSet) for arg in args):
++finite_sets = [arg for arg in args if isinstance(arg, FiniteSet)]
++other_sets = [arg for arg in args if not isinstance(arg, FiniteSet)]
++            if len(finite_sets) > 1:
++common_elements = set(finite_sets[0])
++                for fs in finite_sets[1:]:
++common_elements &= set(fs)
++                if len(common_elements) == 1:
++common_element = list(common_elements)[0]
++conditions = [Eq(common_element, elem) for elem in finite_sets[0]]
++return Piecewise((FiniteSet(common_element), And(*conditions)), (S.EmptySet, True))
++
+         obj = Basic.__new__(cls, *args)
+         obj._argset = frozenset(args)
+         return obj
+@@ -1262,12 +1288,16 @@ def __new__(cls, *args, **kwargs):
+         # flatten inputs to merge intersections and iterables
+         args = _sympify(args)
+ 
++        # Remove duplicates
++args = list(ordered(set(args), Set._infimum_key))
++
+         # Reduce sets using known rules
+         if evaluate:
+             args = list(cls._new_args_filter(args))
+             return simplify_intersection(args)
+ 
+-        args = list(ordered(args, Set._infimum_key))
++        if len(args) == 1:
++return args[0]
+ 
+         obj = Basic.__new__(cls, *args)
+         obj._argset = frozenset(args)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ImportError: cannot import name 'Piecewise' from partially initialized module 'sympy' (most likely due to a circular import) (/testbed/sympy/__init__.py) + git checkout e727339af6dc22321b00f52d971cda39e4ce89fb sympy/sets/tests/test_sets.py Updated 1 path from 3be1a44635
+
+=== Test Verification Results ===
+Tests Passed: False

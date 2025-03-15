@@ -1,0 +1,104 @@
+=== Original Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 2903b8995..a9a3e1198 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -14,6 +14,7 @@ import string
+ import struct
+ import sys
+ import types
++import builtins
+ 
+ import atomicwrites
+ import py
+@@ -968,6 +969,7 @@ warn_explicit(
+         """
+         visit `ast.Call` nodes on Python3.5 and after
+         """
++        call = self.unroll_iterable_assertions(call)
+         new_func, func_expl = self.visit(call.func)
+         arg_expls = []
+         new_args = []
+@@ -1069,7 +1071,6 @@ warn_explicit(
+             res_expr = ast.Compare(left_res, [op], [next_res])
+             self.statements.append(ast.Assign([store_names[i]], res_expr))
+             left_res, left_expl = next_res, next_expl
+-        # Use pytest.assertion.util._reprcompare if that's available.
+         expl_call = self.helper(
+             "_call_reprcompare",
+             ast.Tuple(syms, ast.Load()),
+@@ -1082,3 +1083,17 @@ warn_explicit(
+         else:
+             res = load_names[0]
+         return res, self.explanation_param(self.pop_format_context(expl_call))
++
++    def unroll_iterable_assertions(self, call):
++        if isinstance(call.func, ast.Name) and call.func.id in {"all", "any"}:
++            iter_var = self.variable()
++            iter_assign = ast.Assign(
++                targets=[ast.Name(id=iter_var, ctx=ast.Store())],
++                value=call.args[0]
++            )
++            self.statements.append(iter_assign)
++            new_args = [ast.Name(id=iter_var, ctx=ast.Load())]
++            new_func = call.func
++            new_call = ast.Call(new_func, new_args, [])
++            return new_call
++        return call
+
+=== Fixed Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 2903b8995..a9a3e1198 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -14,6 +14,7 @@ import string
+ import struct
+ import sys
+ import types
++import builtins
+ 
+ import atomicwrites
+ import py
+@@ -968,6 +969,7 @@ warn_explicit(
+         """
+         visit `ast.Call` nodes on Python3.5 and after
+         """
++call = self.unroll_iterable_assertions(call)
+         new_func, func_expl = self.visit(call.func)
+         arg_expls = []
+         new_args = []
+@@ -1069,7 +1071,6 @@ warn_explicit(
+             res_expr = ast.Compare(left_res, [op], [next_res])
+             self.statements.append(ast.Assign([store_names[i]], res_expr))
+             left_res, left_expl = next_res, next_expl
+-        # Use pytest.assertion.util._reprcompare if that's available.
+         expl_call = self.helper(
+             "_call_reprcompare",
+             ast.Tuple(syms, ast.Load()),
+@@ -1082,3 +1083,17 @@ warn_explicit(
+         else:
+             res = load_names[0]
+         return res, self.explanation_param(self.pop_format_context(expl_call))
++
++    def unroll_iterable_assertions(self, call):
++        if isinstance(call.func, ast.Name) and call.func.id in {"all", "any"}:
++iter_var = self.variable()
++            iter_assign = ast.Assign(
++targets = ([ast.Name(id=iter_var, ctx=ast.Store())],)
++value = call.args[0]
++            )
++self.statements.append(iter_assign)
++new_args = [ast.Name(id=iter_var, ctx=ast.Load())]
++new_func = call.func
++new_call = ast.Call(new_func, new_args, [])
++return new_call
++return call
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Sometime I need to assert some predicate on all of an iterable, and for that the builtin functions `all`/`any` are great - but the failure messages aren't useful at all!
+test_all_any.py:7: AssertionError
+
+=== Test Verification Results ===
+Tests Passed: False

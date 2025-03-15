@@ -1,0 +1,63 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/importer.py b/sphinx/ext/autodoc/importer.py
+index 477aae247..b983921d1 100644
+--- a/sphinx/ext/autodoc/importer.py
++++ b/sphinx/ext/autodoc/importer.py
+@@ -226,11 +226,17 @@ def get_object_members(subject: Any, objpath: List[str], attrgetter: Callable,
+             continue
+ 
+     # annotation only member (ex. attr: int)
+-    for i, cls in enumerate(getmro(subject)):
+-        for name in getannotations(cls):
+-            name = unmangle(cls, name)
++    if isclass(subject):
++        for i, cls in enumerate(getmro(subject)):
++            for name in getannotations(cls):
++                name = unmangle(cls, name)
++                if name and name not in members:
++                    members[name] = Attribute(name, i == 0, INSTANCEATTR)
++    else:
++        for name in getannotations(subject):
++            name = unmangle(subject, name)
+             if name and name not in members:
+-                members[name] = Attribute(name, i == 0, INSTANCEATTR)
++                members[name] = Attribute(name, True, INSTANCEATTR)
+ 
+     if analyzer:
+         # append instance attributes (cf. self.attr1) if analyzer knows
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/importer.py b/sphinx/ext/autodoc/importer.py
+index 477aae247..b983921d1 100644
+--- a/sphinx/ext/autodoc/importer.py
++++ b/sphinx/ext/autodoc/importer.py
+@@ -226,11 +226,17 @@ def get_object_members(subject: Any, objpath: List[str], attrgetter: Callable,
+             continue
+ 
+     # annotation only member (ex. attr: int)
+-    for i, cls in enumerate(getmro(subject)):
+-        for name in getannotations(cls):
+-            name = unmangle(cls, name)
++    if isclass(subject):
++        for i, cls in enumerate(getmro(subject)):
++            for name in getannotations(cls):
++name = unmangle(cls, name)
++                if name and name not in members:
++members[name] = Attribute(name, i == 0, INSTANCEATTR)
++    else:
++        for name in getannotations(subject):
++name = unmangle(subject, name)
+             if name and name not in members:
+-                members[name] = Attribute(name, i == 0, INSTANCEATTR)
++members[name] = Attribute(name, True, INSTANCEATTR)
+ 
+     if analyzer:
+         # append instance attributes (cf. self.attr1) if analyzer knows
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+`Bar.attr1` is not documented. It will be shown if I give `:undoc-members:` option to the autoclass directive call. It seems the attribute is treated as undocumented.
+
+=== Test Verification Results ===
+Tests Passed: False

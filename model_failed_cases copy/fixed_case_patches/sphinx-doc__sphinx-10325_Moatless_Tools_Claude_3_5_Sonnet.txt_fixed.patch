@@ -1,0 +1,63 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 62631f7ff..d29ea8f7b 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1442,7 +1442,7 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+     member_order = 20
+     option_spec: OptionSpec = {
+         'members': members_option, 'undoc-members': bool_option,
+-        'noindex': bool_option, 'inherited-members': inherited_members_option,
++        'noindex': bool_option, 'inherited-members': lambda arg: arg.split(',') if arg else [],
+         'show-inheritance': bool_option, 'member-order': member_order_option,
+         'exclude-members': exclude_members_option,
+         'private-members': members_option, 'special-members': members_option,
+@@ -1710,7 +1710,12 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+                                    (name, self.fullname), type='autodoc')
+             return False, selected
+         elif self.options.inherited_members:
+-            return False, list(members.values())
++            if isinstance(self.options.inherited_members, list):
++                return False, [m for m in members.values() if m.class_ == self.object or
++                               (m.class_ != self.object and
++                                m.class_.__name__ not in self.options.inherited_members)]
++            else:
++                return False, list(members.values())
+         else:
+             return False, [m for m in members.values() if m.class_ == self.object]
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 62631f7ff..d29ea8f7b 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1442,7 +1442,7 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+     member_order = 20
+     option_spec: OptionSpec = {
+         'members': members_option, 'undoc-members': bool_option,
+-        'noindex': bool_option, 'inherited-members': inherited_members_option,
++        'noindex': bool_option, 'inherited-members': lambda arg: arg.split(',') if arg else [],
+         'show-inheritance': bool_option, 'member-order': member_order_option,
+         'exclude-members': exclude_members_option,
+         'private-members': members_option, 'special-members': members_option,
+@@ -1710,7 +1710,12 @@ class ClassDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):  # type:
+                                    (name, self.fullname), type='autodoc')
+             return False, selected
+         elif self.options.inherited_members:
+-            return False, list(members.values())
++            if isinstance(self.options.inherited_members, list):
++                return False, [m for m in members.values() if m.class_ == self.object or
++                               (m.class_ != self.object and
++                                m.class_.__name__ not in self.options.inherited_members)]
++            else:
++return (False, list(members.values()))
+         else:
+             return False, [m for m in members.values() if m.class_ == self.object]
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,46 @@
+=== Original Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..58b254ba78 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -134,6 +134,9 @@ class SQLCompiler:
+ 
+         for expr in expressions:
+             sql, params = self.compile(expr)
++            if isinstance(expr, Ref):
++                # Use the full column name for Ref expressions
++                sql = f"{expr.table}.{expr.column}"
+             params_hash = make_hashable(params)
+             if (sql, params_hash) not in seen:
+                 result.append((sql, params))
+
+=== Fixed Patch ===
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..58b254ba78 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -134,6 +134,9 @@ class SQLCompiler:
+ 
+         for expr in expressions:
+             sql, params = self.compile(expr)
++            if isinstance(expr, Ref):
++                # Use the full column name for Ref expressions
++sql = f'{expr.table}.{expr.column}'
+             params_hash = make_hashable(params)
+             if (sql, params_hash) not in seen:
+                 result.append((sql, params))
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AttributeError: 'Ref' object has no attribute 'table' ====================================================================== ERROR: test_group_by_exists_annotation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+AttributeError: 'Ref' object has no attribute 'table' ====================================================================== ERROR: test_group_by_subquery_annotation (aggregation.tests.AggregateTestCase) ----------------------------------------------------------------------
+AttributeError: 'Ref' object has no attribute 'table' ---------------------------------------------------------------------- Ran 67 tests in 0.278s FAILED (errors=3) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... Testing against Django installed in '/testbed/django' Importing application aggregation Skipping setup of unused database(s): other. Operations to perform: Synchronize unmigrated apps: aggregation, auth, contenttypes, messages, sessions, staticfiles Apply all migrations: admin, sites Synchronizing apps without migrations: Creating tables... Creating table django_content_type Creating table auth_permission Creating table auth_group Creating table auth_user Creating table django_session Creating table aggregation_author Creating table aggregation_publisher Creating table aggregation_book Creating table aggregation_store Running deferred SQL... Running migrations: Applying admin.0001_initial... OK Applying admin.0002_logentry_remove_auto_add... OK Applying admin.0003_logentry_add_action_flag_choices... OK Applying sites.0001_initial... OK Applying sites.0002_alter_domain_unique... OK System check identified no issues (0 silenced). + git checkout 895f28f9cbed817c00ab68770433170d83132d90 tests/aggregation/models.py tests/aggregation/tests.py Updated 2 paths from d7dee2ad87
+Django 3.0: "GROUP BY" clauses error with tricky field annotation
+null=True,
+on_delete=models.SET_NULL,
+On Django 3.0.4 we have an error
+django.db.utils.ProgrammingError: column reference "status" is ambiguous
+
+=== Test Verification Results ===
+Tests Passed: False

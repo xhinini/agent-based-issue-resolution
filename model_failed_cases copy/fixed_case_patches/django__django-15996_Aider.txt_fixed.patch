@@ -1,0 +1,62 @@
+=== Original Patch ===
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..571a6e63a2 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,10 +125,16 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
+-        return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+-            {"import %s" % module},
+-        )
++        try:
++            return (
++                "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
++                {"import %s" % module},
++            )
++        except KeyError:
++            # Handle combination of Enum flags
++            members, _ = enum._decompose(enum_class, self.value)
++            value = " | ".join("%s.%s.%s" % (module, enum_class.__qualname__, member.name) for member in members)
++            return value, {"import %s" % module}
+ 
+ 
+ class FloatSerializer(BaseSimpleSerializer):
+
+=== Fixed Patch ===
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..571a6e63a2 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,10 +125,16 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
+-        return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+-            {"import %s" % module},
+-        )
++        try:
++            return (
++('%s.%s[%r]' % (module, enum_class.__qualname__, self.value.name),)
++({'import %s' % module},)
++            )
++        except KeyError:
++            # Handle combination of Enum flags
++members, _ = enum._decompose(enum_class, self.value)
++value = ' | '.join(('%s.%s.%s' % (module, enum_class.__qualname__, member.name) for member in members))
++return (value, {'import %s' % module})
+ 
+ 
+ class FloatSerializer(BaseSimpleSerializer):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: Tuples differ: ('migrations.test_writer.IntFlagEnum[None][32 chars]er'}) != ("migrations.test_writer.IntFlagEnum['A'] [73 chars]er'}) First differing element 0: 'migrations.test_writer.IntFlagEnum[None]' "migrations.test_writer.IntFlagEnum['A'] [37 chars]'B']" - ('migrations.test_writer.IntFlagEnum[None]', {'import migrations.test_writer'}) + ("migrations.test_writer.IntFlagEnum['A'] | " +  "migrations.test_writer.IntFlagEnum['B']", +  {'import migrations.test_writer'}) ---------------------------------------------------------------------- Ran 52 tests in 0.043s FAILED (failures=1) Testing against Django installed in '/testbed/django' Importing application migrations Found 52 test(s). Skipping setup of unused database(s): default, other. System check identified no issues (0 silenced). + git checkout b30c0081d4d8a31ab7dc7f72a4c7099af606ef29 tests/migrations/test_writer.py Updated 1 path from 17623c1b07
+default=re.RegexFlag[None]
+
+=== Test Verification Results ===
+Tests Passed: False

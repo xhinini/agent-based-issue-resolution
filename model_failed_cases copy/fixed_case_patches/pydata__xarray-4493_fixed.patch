@@ -1,0 +1,71 @@
+=== Original Patch ===
+diff --git a/xarray/core/merge.py b/xarray/core/merge.py
+index 54aa25a..1e74303 100644
+--- a/xarray/core/merge.py
++++ b/xarray/core/merge.py
+@@ -929,6 +929,9 @@ def dataset_update_method(
+                 ]
+                 if coord_names:
+                     other[key] = value.drop_vars(coord_names)
++                # Ensure chunking information is preserved
++                if hasattr(value.data, "chunks"):
++                    other[key].data = value.data
+ 
+     # use ds.coords and not ds.indexes, else str coords are cast to object
+     indexes = {key: dataset.coords[key] for key in dataset.indexes.keys()}
+@@ -937,4 +940,4 @@ def dataset_update_method(
+         priority_arg=1,
+         indexes=indexes,
+         combine_attrs="override",
+-    )
++    )
+
+=== Fixed Patch ===
+diff --git a/xarray/core/merge.py b/xarray/core/merge.py
+index 54aa25a..1e74303 100644
+--- a/xarray/core/merge.py
++++ b/xarray/core/merge.py
+@@ -929,6 +929,9 @@ def dataset_update_method(
+                 ]
+                 if coord_names:
+                     other[key] = value.drop_vars(coord_names)
++                # Ensure chunking information is preserved
++                if hasattr(value.data, "chunks"):
++other[key].data = value.data
+ 
+     # use ds.coords and not ds.indexes, else str coords are cast to object
+     indexes = {key: dataset.coords[key] for key in dataset.indexes.keys()}
+@@ -937,4 +940,4 @@ def dataset_update_method(
+         priority_arg=1,
+         indexes=indexes,
+         combine_attrs="override",
+-    )
++    )
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+commit: None
+LC_ALL: None
+libnetcdf: None
+netCDF4: None
+pydap: None
+h5netcdf: None
+Nio: None
+zarr: None
+cftime: None
+nc_time_axis: None
+PseudoNetCDF: None
+rasterio: None
+cfgrib: None
+iris: None
+bottleneck: None
+cartopy: None
+seaborn: None
+numbagg: None
+pint: None
+conda: None
+sphinx: None
+
+=== Test Verification Results ===
+Tests Passed: False

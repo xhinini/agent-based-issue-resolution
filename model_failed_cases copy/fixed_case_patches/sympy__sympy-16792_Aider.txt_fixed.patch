@@ -1,0 +1,92 @@
+=== Original Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index bd6afb12d1..eb6e6dcbf9 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -449,6 +449,19 @@ def _prototype_arg(self, arg):
+         else:
+             return "%s %s" % (t, self._string_var(arg.name))
+ 
++    def _call_arg(self, arg):
++        np_types = {'double': 'np.double_t',
++                    'int': 'np.int_t'}
++        if arg.dimensions:
++            t = arg.get_datatype('c')
++            return "<{0}*> {1}.data".format(t, self._string_var(arg.name))
++        elif isinstance(arg, InputArgument) and arg.dimensions:
++            return "np.ndarray[{0}, ndim={1}] {2}".format(np_types[t], len(arg.dimensions), self._string_var(arg.name))
++        elif isinstance(arg, ResultBase):
++            return "&{0}".format(self._string_var(arg.name))
++        else:
++            return self._string_var(arg.name)
++
+     def _declare_arg(self, arg):
+         proto = self._prototype_arg(arg)
+         if arg.dimensions:
+@@ -458,9 +471,13 @@ def _declare_arg(self, arg):
+             return proto + " = 0"
+ 
+     def _call_arg(self, arg):
++        np_types = {'double': 'np.double_t',
++                    'int': 'np.int_t'}
+         if arg.dimensions:
+             t = arg.get_datatype('c')
+             return "<{0}*> {1}.data".format(t, self._string_var(arg.name))
++        elif isinstance(arg, InputArgument) and arg.dimensions:
++            return "np.ndarray[{0}, ndim={1}] {2}".format(np_types[t], len(arg.dimensions), self._string_var(arg.name))
+         elif isinstance(arg, ResultBase):
+             return "&{0}".format(self._string_var(arg.name))
+         else:
+
+=== Fixed Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index bd6afb12d1..eb6e6dcbf9 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -449,6 +449,19 @@ def _prototype_arg(self, arg):
+         else:
+             return "%s %s" % (t, self._string_var(arg.name))
+ 
++    def _call_arg(self, arg):
++        np_types = {'double': 'np.double_t',
++                    'int': 'np.int_t'}
++        if arg.dimensions:
++t = arg.get_datatype('c')
++return '<{0}*> {1}.data'.format(t, self._string_var(arg.name))
++        elif isinstance(arg, InputArgument) and arg.dimensions:
++return 'np.ndarray[{0}, ndim={1}] {2}'.format(np_types[t], len(arg.dimensions), self._string_var(arg.name))
++        elif isinstance(arg, ResultBase):
++return '&{0}'.format(self._string_var(arg.name))
++        else:
++return self._string_var(arg.name)
++
+     def _declare_arg(self, arg):
+         proto = self._prototype_arg(arg)
+         if arg.dimensions:
+@@ -458,9 +471,13 @@ def _declare_arg(self, arg):
+             return proto + " = 0"
+ 
+     def _call_arg(self, arg):
++        np_types = {'double': 'np.double_t',
++                    'int': 'np.int_t'}
+         if arg.dimensions:
+             t = arg.get_datatype('c')
+             return "<{0}*> {1}.data".format(t, self._string_var(arg.name))
++        elif isinstance(arg, InputArgument) and arg.dimensions:
++return 'np.ndarray[{0}, ndim={1}] {2}'.format(np_types[t], len(arg.dimensions), self._string_var(arg.name))
+         elif isinstance(arg, ResultBase):
+             return "&{0}".format(self._string_var(arg.name))
+         else:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+autowrap with cython backend fails when array arguments do not appear in wrapped expr
+This should of course return `1.0` but instead fails with:
+TypeError: only size-1 arrays can be converted to Python scalars
+A little inspection reveals that this is because the corresponding C function is generated with an incorrect signature:
+I've found that this error won't occur so long as `expr` depends at least in part on each argument. For example this slight modification of the above counterexample works perfectly:
+# returns 1.0 as expected, without failure
+
+=== Test Verification Results ===
+Tests Passed: False

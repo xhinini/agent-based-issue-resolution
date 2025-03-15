@@ -1,0 +1,81 @@
+=== Original Patch ===
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..36701f3ca 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -23,6 +23,8 @@ from ..utils._array_api import get_namespace
+ def _unique_multiclass(y):
+     xp, is_array_api = get_namespace(y)
+     if hasattr(y, "__array__") or is_array_api:
++        if hasattr(y, "dtype") and y.dtype.name in ["Int64", "Float64", "boolean"]:
++            y = y.astype(y.dtype.name.lower())
+         return xp.unique_values(xp.asarray(y))
+     else:
+         return set(y)
+@@ -78,6 +80,13 @@ def unique_labels(*ys):
+         raise ValueError("No argument has been passed.")
+     # Check that we don't mix label format
+ 
++    ys = [
++        y.astype(y.dtype.name.lower())
++        if hasattr(y, "dtype") and y.dtype.name in ["Int64", "Float64", "boolean"]
++        else y
++        for y in ys
++    ]
++
+     ys_types = set(type_of_target(x) for x in ys)
+     if ys_types == {"binary", "multiclass"}:
+         ys_types = {"multiclass"}
+@@ -86,7 +95,6 @@ def unique_labels(*ys):
+         raise ValueError("Mix type of y not allowed, got types %s" % ys_types)
+ 
+     label_type = ys_types.pop()
+-
+     # Check consistency for the indicator format
+     if (
+         label_type == "multilabel-indicator"
+
+=== Fixed Patch ===
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+index 5eaef2fde..36701f3ca 100644
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -23,6 +23,8 @@ from ..utils._array_api import get_namespace
+ def _unique_multiclass(y):
+     xp, is_array_api = get_namespace(y)
+     if hasattr(y, "__array__") or is_array_api:
++        if hasattr(y, "dtype") and y.dtype.name in ["Int64", "Float64", "boolean"]:
++y = y.astype(y.dtype.name.lower())
+         return xp.unique_values(xp.asarray(y))
+     else:
+         return set(y)
+@@ -78,6 +80,13 @@ def unique_labels(*ys):
+         raise ValueError("No argument has been passed.")
+     # Check that we don't mix label format
+ 
++    ys = [
++y.astype(y.dtype.name.lower())
++        if hasattr(y, "dtype") and y.dtype.name in ["Int64", "Float64", "boolean"]
++        else y
++        for y in ys
++    ]
++
+     ys_types = set(type_of_target(x) for x in ys)
+     if ys_types == {"binary", "multiclass"}:
+         ys_types = {"multiclass"}
+@@ -86,7 +95,6 @@ def unique_labels(*ys):
+         raise ValueError("Mix type of y not allowed, got types %s" % ys_types)
+ 
+     label_type = ys_types.pop()
+-
+     # Check consistency for the indicator format
+     if (
+         label_type == "multilabel-indicator"
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Support nullable pandas dtypes in `unique_labels`
+
+=== Test Verification Results ===
+Tests Passed: False

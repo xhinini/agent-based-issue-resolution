@@ -1,0 +1,66 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..08e71f9b41 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -115,6 +115,21 @@ def restore_patch(self):
+         Element.writexml = self._Element_writexml_old
+         Text.writexml = self._Text_writexml_old
+ 
++    def _print_Indexed(self, expr):
++        base = self._print(expr.base)
++
++        if len(expr.indices) == 1:
++            indices = self._print(expr.indices[0])
++        else:
++            indices = self.dom.createElement('mrow')
++            for index in expr.indices:
++                indices.appendChild(self._print(index))
++
++        x = self.dom.createElement('msub')
++        x.appendChild(base)
++        x.appendChild(indices)
++        return x
++
+ 
+ class MathMLContentPrinter(MathMLPrinterBase):
+     """Prints an expression to the Content MathML markup language.
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..08e71f9b41 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -115,6 +115,21 @@ def restore_patch(self):
+         Element.writexml = self._Element_writexml_old
+         Text.writexml = self._Text_writexml_old
+ 
++    def _print_Indexed(self, expr):
++base = self._print(expr.base)
++
++        if len(expr.indices) == 1:
++indices = self._print(expr.indices[0])
++        else:
++indices = self.dom.createElement('mrow')
++            for index in expr.indices:
++indices.appendChild(self._print(index))
++
++x = self.dom.createElement('msub')
++x.appendChild(base)
++x.appendChild(indices)
++return x
++
+ 
+ class MathMLContentPrinter(MathMLPrinterBase):
+     """Prints an expression to the Content MathML markup language.
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Writing an `Indexed` object to MathML fails with a `TypeError` exception: `TypeError: 'Indexed' object is not iterable`:
+TypeError                                 Traceback (most recent call last)
+TypeError: 'Indexed' object is not iterable
+It also fails for more complex expressions where at least one element is Indexed.
+
+=== Test Verification Results ===
+Tests Passed: False

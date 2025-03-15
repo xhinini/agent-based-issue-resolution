@@ -1,0 +1,47 @@
+=== Original Patch ===
+diff --git a/django/db/models/options.py b/django/db/models/options.py
+index 69e5965..37fb996 100644
+--- a/django/db/models/options.py
++++ b/django/db/models/options.py
+@@ -218,6 +218,13 @@ class Options:
+         return new_objs
+ 
+     def _prepare(self, model):
++        # Inherit ordering from parent model if not explicitly set
++        if not self.ordering and self.parents:
++            for parent in self.parents:
++                if parent._meta.ordering:
++                    self.ordering = parent._meta.ordering
++                    break
++
+         if self.order_with_respect_to:
+             # The app registry will not be ready at this point, so we cannot
+             # use get_field().
+
+=== Fixed Patch ===
+diff --git a/django/db/models/options.py b/django/db/models/options.py
+index 69e5965..37fb996 100644
+--- a/django/db/models/options.py
++++ b/django/db/models/options.py
+@@ -218,6 +218,13 @@ class Options:
+         return new_objs
+ 
+     def _prepare(self, model):
++        # Inherit ordering from parent model if not explicitly set
++        if not self.ordering and self.parents:
++            for parent in self.parents:
++                if parent._meta.ordering:
++self.ordering = parent._meta.ordering
++break
++
+         if self.order_with_respect_to:
+             # The app registry will not be ready at this point, so we cannot
+             # use get_field().
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: Sequences differ: <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> != [<Parent: Parent object (2)>, <Parent: Parent object (1)>] First differing element 0: <Parent: Parent object (1)> <Parent: Parent object (2)> - <QuerySet [<Parent: Parent object (1)>, <Parent: Parent object (2)>]> ? ----------                         ^                            ^   - + [<Parent: Parent object (2)>, <Parent: Parent object (1)>] ?                          ^                            ^ ---------------------------------------------------------------------- Ran 34 tests in 0.070s FAILED (failures=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 142ab6846ac09d6d401e26fc8b6b988a583ac0f5 tests/model_inheritance/models.py tests/model_inheritance/tests.py Updated 2 paths from d12a79a5db
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,89 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index b657a35cf7..62b6422053 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -103,6 +103,7 @@ import warnings
+ 
+ import numpy
+ from packaging.version import parse as parse_version
++from distutils.version import LooseVersion
+ 
+ # cbook must import matplotlib only within function
+ # definitions, so it is safe to import from it here.
+@@ -134,9 +135,6 @@ def __getattr__(name):
+     if name == "__version__":
+         import setuptools_scm
+         global __version__  # cache it.
+-        # Only shell out to a git subprocess if really needed, and not on a
+-        # shallow clone, such as those used by CI, as the latter would trigger
+-        # a warning from setuptools_scm.
+         root = Path(__file__).resolve().parents[2]
+         if (root / ".git").exists() and not (root / ".git/shallow").exists():
+             __version__ = setuptools_scm.get_version(
+@@ -145,9 +143,17 @@ def __getattr__(name):
+                 local_scheme="node-and-date",
+                 fallback_version=_version.version,
+             )
+-        else:  # Get the version from the _version.py setuptools_scm file.
++        else:
+             __version__ = _version.version
+         return __version__
++    elif name == "version_info":
++        version_str = __getattr__("__version__")
++        version_info = tuple(map(int, version_str.split('.')[:3]))
++        return version_info
++    elif name == "LooseVersion":
++        from packaging.version import Version
++        version_str = __getattr__("__version__")
++        return Version(version_str)
+     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index b657a35cf7..62b6422053 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -103,6 +103,7 @@ import warnings
+ 
+ import numpy
+ from packaging.version import parse as parse_version
++from distutils.version import LooseVersion
+ 
+ # cbook must import matplotlib only within function
+ # definitions, so it is safe to import from it here.
+@@ -134,9 +135,6 @@ def __getattr__(name):
+     if name == "__version__":
+         import setuptools_scm
+         global __version__  # cache it.
+-        # Only shell out to a git subprocess if really needed, and not on a
+-        # shallow clone, such as those used by CI, as the latter would trigger
+-        # a warning from setuptools_scm.
+         root = Path(__file__).resolve().parents[2]
+         if (root / ".git").exists() and not (root / ".git/shallow").exists():
+             __version__ = setuptools_scm.get_version(
+@@ -145,9 +143,17 @@ def __getattr__(name):
+                 local_scheme="node-and-date",
+                 fallback_version=_version.version,
+             )
+-        else:  # Get the version from the _version.py setuptools_scm file.
++        else:
+             __version__ = _version.version
+         return __version__
++    elif name == "version_info":
++version_str = __getattr__('__version__')
++version_info = tuple(map(int, version_str.split('.')[:3]))
++return version_info
++    elif name == "LooseVersion":
++from packaging.version import Version
++version_str = __getattr__('__version__')
++return Version(version_str)
+     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

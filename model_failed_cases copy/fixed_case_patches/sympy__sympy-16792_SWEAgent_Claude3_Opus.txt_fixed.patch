@@ -1,0 +1,45 @@
+=== Original Patch ===
+diff --git a/reproduce.py b/reproduce.py
+new file mode 100644
+index 0000000000..466bc20e64
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,9 @@
++from sympy.utilities.autowrap import autowrap
++from sympy import MatrixSymbol
++import numpy as np
++
++x = MatrixSymbol('x', 2, 1)
++expr = 1.0
++f = autowrap(expr, args=(x,), backend='cython')
++
++f(np.array([[1.0, 2.0]]))
+
+=== Fixed Patch ===
+diff --git a/reproduce.py b/reproduce.py
+index 0000000000..466bc20e64
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,9 @@
++from sympy.utilities.autowrap import autowrap
++from sympy import MatrixSymbol
++import numpy as np
++
++x = MatrixSymbol('x', 2, 1)
++expr = 1.0
++f = autowrap(expr, args=(x,), backend='cython')
++
++f(np.array([[1.0, 2.0]]))
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+autowrap with cython backend fails when array arguments do not appear in wrapped expr
+This should of course return `1.0` but instead fails with:
+TypeError: only size-1 arrays can be converted to Python scalars
+A little inspection reveals that this is because the corresponding C function is generated with an incorrect signature:
+I've found that this error won't occur so long as `expr` depends at least in part on each argument. For example this slight modification of the above counterexample works perfectly:
+# returns 1.0 as expected, without failure
+
+=== Test Verification Results ===
+Tests Passed: False

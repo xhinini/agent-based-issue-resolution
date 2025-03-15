@@ -1,0 +1,64 @@
+=== Original Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index b711aa3..a4c917c 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -518,9 +518,15 @@ class Point(object):
+         """
+ 
+         _check_frame(frame)
+-        if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
+-                             ' defined in ReferenceFrame ' + frame.name)
++        if frame not in self._vel_dict:
++            # Attempt to calculate velocity from position vector
++            otherpoint = self._pos_dict.get(frame, None)
++            if otherpoint is not None:
++                dist = self.pos_from(otherpoint)
++                self.set_vel(frame, dist.dt(frame))
++            else:
++                raise ValueError('Velocity of point ' + self.name + ' has not been'
++                                 ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+
+=== Fixed Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index b711aa3..a4c917c 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -518,9 +518,15 @@ class Point(object):
+         """
+ 
+         _check_frame(frame)
+-        if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
+-                             ' defined in ReferenceFrame ' + frame.name)
++        if frame not in self._vel_dict:
++            # Attempt to calculate velocity from position vector
++otherpoint = self._pos_dict.get(frame, None)
++            if otherpoint is not None:
++dist = self.pos_from(otherpoint)
++self.set_vel(frame, dist.dt(frame))
++            else:
++                raise ValueError('Velocity of point ' + self.name + ' has not been'
++                                 ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: Velocity of point Q has not been defined in ReferenceFrame N ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_multiple_point_path
+ValueError: Velocity of point P3 has not been defined in ReferenceFrame B ________________________________________________________________________________ ____ sympy/physics/vector/tests/test_point.py:test_auto_vel_dont_overwrite _____
+ValueError: Velocity of point P1 has not been defined in ReferenceFrame N ________________________________________________________________________________ __ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_shortest_path __
+ValueError: Velocity of point P4 has not been defined in ReferenceFrame B ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_connected_frames _
+ValueError: Velocity of point P has not been defined in ReferenceFrame N =========== tests finished: 9 passed, 5 exceptions, in 0.84 seconds ============ DO *NOT* COMMIT! + git checkout d57aaf064041fe52c0fa357639b069100f8b28e1 sympy/physics/vector/tests/test_point.py Updated 1 path from 479269d1df
+ValueError                                Traceback (most recent call last)
+454             raise ValueError('Velocity of point ' + self.name + ' has not been'
+ValueError: Velocity of point Q has not been defined in ReferenceFrame A
+
+=== Test Verification Results ===
+Tests Passed: False

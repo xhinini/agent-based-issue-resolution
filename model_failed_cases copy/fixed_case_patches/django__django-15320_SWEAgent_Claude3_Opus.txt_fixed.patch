@@ -1,0 +1,110 @@
+=== Original Patch ===
+diff --git a/reproduce.py b/reproduce.py
+new file mode 100644
+index 0000000000..c534a5c102
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,26 @@
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reproduce_settings')
++
++import django
++django.setup()
++
++from django.db import connection
++from django.db.models import Subquery
++from django.contrib.auth.models import User
++
++q = Subquery(User.objects.all())
++print(str(q.query))
++# Output SQL is valid:
++# 'SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user"'
++# Output SQL is valid:
++# 'SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user"'
++
++print(q.as_sql(q.query.get_compiler('default'), connection))
++# Outptut SQL is invalid (no S letter at the beggining and " symbol at the end):
++# ('(ELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user")', ())
++
++q.query.subquery = True
++print(q.as_sql(q.query.get_compiler('default'), connection))
++# Outputs correct result
++# ('(SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user")', ())
++print("Script completed successfully, no errors.")
+diff --git a/reproduce_settings.py b/reproduce_settings.py
+new file mode 100644
+index 0000000000..1090cc3421
+--- /dev/null
++++ b/reproduce_settings.py
+@@ -0,0 +1,11 @@
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reproduce_settings')
++
++import django
++django.setup()
++
++from django.db import connection
++from django.db.models import Subquery
++from django.contrib.auth.models import User
++
++q = Subquery(User.objects.all())
+
+=== Fixed Patch ===
+diff --git a/reproduce.py b/reproduce.py
+index 0000000000..c534a5c102
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,26 @@
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reproduce_settings')
++
++import django
++django.setup()
++
++from django.db import connection
++from django.db.models import Subquery
++from django.contrib.auth.models import User
++
++q = Subquery(User.objects.all())
++print(str(q.query))
++# Output SQL is valid:
++# 'SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user"'
++# Output SQL is valid:
++# 'SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user"'
++
++print(q.as_sql(q.query.get_compiler('default'), connection))
++# Outptut SQL is invalid (no S letter at the beggining and " symbol at the end):
++# ('(ELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user")', ())
++
++q.query.subquery = True
++print(q.as_sql(q.query.get_compiler('default'), connection))
++# Outputs correct result
++# ('(SELECT "auth_user"."id", "auth_user"."password", "auth_user"."last_login", "auth_user"."is_superuser", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."date_joined" FROM "auth_user")', ())
++print('Script completed successfully, no errors.')
+diff --git a/reproduce_settings.py b/reproduce_settings.py
+index 0000000000..1090cc3421
+--- /dev/null
++++ b/reproduce_settings.py
+@@ -0,0 +1,11 @@
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reproduce_settings')
++
++import django
++django.setup()
++
++from django.db import connection
++from django.db.models import Subquery
++from django.contrib.auth.models import User
++
++q = Subquery(User.objects.all())
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: False is not True ---------------------------------------------------------------------- Ran 164 tests in 0.251s FAILED (failures=1, skipped=1, expected failures=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout b55ebe32417e0884b6b8b3e1bc0379033aa221af tests/expressions/tests.py Updated 1 path from 19f831fe39
+Subquery.as_sql() generates invalid SQL.
+Since ​this commit Subquery.as_sql(...) method returns incorrect SQL removing first and last symbols instead of absent breakets. Adding Subquery().query.subquery = True attribute fixes the problem. From my point of view, it should be set in Subquery constructor.
+# Outptut SQL is invalid (no S letter at the beggining and " symbol at the end):
+
+=== Test Verification Results ===
+Tests Passed: False

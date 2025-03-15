@@ -1,0 +1,37 @@
+=== Original Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..c27628a134 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -398,6 +398,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, models.JSONField):
++        return field.formfield().prepare_value(value)
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Fixed Patch ===
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..c27628a134 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -398,6 +398,8 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, models.JSONField):
++return getattr(field, 'formfield', False)().prepare_value(value)
+     else:
+         return display_for_value(value, empty_value_display)
+
+=== Applied Patterns ===
+  getattr(field, "formfield", False): 0.0% success rate
+
+=== Original Error Messages ===
+TypeError: keys must be a string ---------------------------------------------------------------------- Ran 22 tests in 0.058s FAILED (errors=1) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 2e0f04507b17362239ba49830d26fec504d46978 tests/admin_utils/tests.py Updated 1 path from be0eb0e2d4
+I believe the fix would be to add a special case in django.contrib.admin.utils.display_for_field to call the prepare_value of the JSONField (not calling json.dumps directly to take care of the InvalidJSONInput case).
+
+=== Test Verification Results ===
+Tests Passed: False

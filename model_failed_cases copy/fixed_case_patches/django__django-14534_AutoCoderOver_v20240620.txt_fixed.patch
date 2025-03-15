@@ -1,0 +1,38 @@
+=== Original Patch ===
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..8d9086fa76 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,6 +277,8 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
++        if 'attrs' in self.data and 'id' in self.data['attrs']:
++            return self.data['attrs']['id']
+         return 'id_%s_%s' % (self.data['name'], self.data['index'])
+ 
+     @property
+
+=== Fixed Patch ===
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..8d9086fa76 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,6 +277,8 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
++        if 'attrs' in self.data and 'id' in self.data['attrs']:
++return self.data['attrs']['id']
+         return 'id_%s_%s' % (self.data['name'], self.data['index'])
+ 
+     @property
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: 'id_name_0' != None ---------------------------------------------------------------------- Ran 121 tests in 0.197s FAILED (failures=1) + git checkout 910ecd1b8df7678f45c3d507dde6bcb1faafa243 tests/forms_tests/tests/test_forms.py Updated 1 path from 7175c8df7b
+Please note that this error only occurs when rendering the subwidgets of a widget of type CheckboxSelectMultiple. This has nothing to do with the method BoundField.id_for_label().
+
+=== Test Verification Results ===
+Tests Passed: False

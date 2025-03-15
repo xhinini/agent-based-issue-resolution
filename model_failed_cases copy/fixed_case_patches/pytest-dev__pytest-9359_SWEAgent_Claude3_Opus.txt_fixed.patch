@@ -1,0 +1,140 @@
+=== Original Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 456681ab2..7dbce3ed9 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -556,9 +556,9 @@ def traverse_node(node: ast.AST) -> Iterator[ast.AST]:
+ 
+ @functools.lru_cache(maxsize=1)
+ def _get_assertion_exprs(src: bytes) -> Dict[int, str]:
++    print("_get_assertion_exprs called with source:", src)
+     """Return a mapping from {lineno: "assertion test expression"}."""
+     ret: Dict[int, str] = {}
+-
+     depth = 0
+     lines: List[str] = []
+     assert_lineno: Optional[int] = None
+@@ -567,8 +567,8 @@ def _get_assertion_exprs(src: bytes) -> Dict[int, str]:
+     def _write_and_reset() -> None:
+         nonlocal depth, lines, assert_lineno, seen_lines
+         assert assert_lineno is not None
++        print(f"Assertion found at line {assert_lineno}: {lines}")
+         ret[assert_lineno] = "".join(lines).rstrip().rstrip("\\")
+-        depth = 0
+         lines = []
+         assert_lineno = None
+         seen_lines = set()
+@@ -677,7 +677,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         self.source = source
+ 
+     def run(self, mod: ast.Module) -> None:
+-        """Find all assert statements in *mod* and rewrite them."""
++        print("AssertionRewriter.run called with module:", mod)
+         if not mod.body:
+             # Nothing to do.
+             return
+diff --git a/test_statement.py b/test_statement.py
+new file mode 100644
+index 000000000..ccfa15ea7
+--- /dev/null
++++ b/test_statement.py
+@@ -0,0 +1,25 @@
++from pytest import fixture
++
++
++def t(foo):
++    return foo
++
++
++@fixture
++def foo():
++    return 1
++
++
++def test_right_statement(foo):
++    assert foo == (3 + 2) * (6 + 9)
++
++    @t
++    def inner():
++        return 2
++
++    assert 2 == inner
++
++
++@t
++def outer():
++    return 2
+
+=== Fixed Patch ===
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 456681ab2..7dbce3ed9 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -556,9 +556,9 @@ def traverse_node(node: ast.AST) -> Iterator[ast.AST]:
+ 
+ @functools.lru_cache(maxsize=1)
+ def _get_assertion_exprs(src: bytes) -> Dict[int, str]:
++print('_get_assertion_exprs called with source:', src)
+     """Return a mapping from {lineno: "assertion test expression"}."""
+     ret: Dict[int, str] = {}
+-
+     depth = 0
+     lines: List[str] = []
+     assert_lineno: Optional[int] = None
+@@ -567,8 +567,8 @@ def _get_assertion_exprs(src: bytes) -> Dict[int, str]:
+     def _write_and_reset() -> None:
+         nonlocal depth, lines, assert_lineno, seen_lines
+         assert assert_lineno is not None
++print(f'Assertion found at line {assert_lineno}: {lines}')
+         ret[assert_lineno] = "".join(lines).rstrip().rstrip("\\")
+-        depth = 0
+         lines = []
+         assert_lineno = None
+         seen_lines = set()
+@@ -677,7 +677,7 @@ class AssertionRewriter(ast.NodeVisitor):
+         self.source = source
+ 
+     def run(self, mod: ast.Module) -> None:
+-        """Find all assert statements in *mod* and rewrite them."""
++print('AssertionRewriter.run called with module:', mod)
+         if not mod.body:
+             # Nothing to do.
+             return
+diff --git a/test_statement.py b/test_statement.py
+index 000000000..ccfa15ea7
+--- /dev/null
++++ b/test_statement.py
+@@ -0,0 +1,25 @@
++from pytest import fixture
++
++
++def t(foo):
++return foo
++
++
++@fixture
++def foo():
++return 1
++
++
++def test_right_statement(foo):
++assert foo == (3 + 2) * (6 + 9)
++
++    @t
++    def inner():
++return 2
++
++assert 2 == inner
++
++
++@t
++def outer():
++return 2
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+Error message prints extra code line when using assert in python3.9
+
+=== Test Verification Results ===
+Tests Passed: False

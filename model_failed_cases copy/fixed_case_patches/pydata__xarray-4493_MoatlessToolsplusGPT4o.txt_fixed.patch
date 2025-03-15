@@ -1,0 +1,63 @@
+=== Original Patch ===
+diff --git a/xarray/core/merge.py b/xarray/core/merge.py
+index d29a9e1f..450548d9 100644
+--- a/xarray/core/merge.py
++++ b/xarray/core/merge.py
+@@ -930,6 +930,11 @@ def dataset_update_method(
+                 if coord_names:
+                     other[key] = value.drop_vars(coord_names)
+ 
++    # Ensure chunked DataArray remains chunked after update
++    for key, value in other.items():
++        if isinstance(value, DataArray) and hasattr(value.data, 'chunks'):
++            other[key] = value.chunk(value.data.chunks)
++
+     # use ds.coords and not ds.indexes, else str coords are cast to object
+     indexes = {key: dataset.coords[key] for key in dataset.indexes.keys()}
+     return merge_core(
+
+=== Fixed Patch ===
+diff --git a/xarray/core/merge.py b/xarray/core/merge.py
+index d29a9e1f..450548d9 100644
+--- a/xarray/core/merge.py
++++ b/xarray/core/merge.py
+@@ -930,6 +930,11 @@ def dataset_update_method(
+                 if coord_names:
+                     other[key] = value.drop_vars(coord_names)
+ 
++    # Ensure chunked DataArray remains chunked after update
++    for key, value in other.items():
++        if isinstance(value, DataArray) and hasattr(value.data, 'chunks'):
++other[key] = value.chunk(value.data.chunks)
++
+     # use ds.coords and not ds.indexes, else str coords are cast to object
+     indexes = {key: dataset.coords[key] for key in dataset.indexes.keys()}
+     return merge_core(
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+commit: None
+LC_ALL: None
+libnetcdf: None
+netCDF4: None
+pydap: None
+h5netcdf: None
+Nio: None
+zarr: None
+cftime: None
+nc_time_axis: None
+PseudoNetCDF: None
+rasterio: None
+cfgrib: None
+iris: None
+bottleneck: None
+cartopy: None
+seaborn: None
+numbagg: None
+pint: None
+conda: None
+sphinx: None
+
+=== Test Verification Results ===
+Tests Passed: False

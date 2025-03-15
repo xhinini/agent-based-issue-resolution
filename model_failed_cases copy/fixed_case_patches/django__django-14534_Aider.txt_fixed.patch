@@ -1,0 +1,38 @@
+=== Original Patch ===
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..59987ee101 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,7 +277,7 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
+-        return 'id_%s_%s' % (self.data['name'], self.data['index'])
++        return self.data['attrs'].get('id', 'id_%s_%s' % (self.data['name'], self.data['index']))
+ 
+     @property
+     def choice_label(self):
+
+=== Fixed Patch ===
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..59987ee101 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,7 +277,7 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
+-        return 'id_%s_%s' % (self.data['name'], self.data['index'])
++return self.data['attrs'].get('id', 'id_%s_%s' % (self.data['name'], self.data['index']))
+ 
+     @property
+     def choice_label(self):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: 'id_name_0' != None ---------------------------------------------------------------------- Ran 121 tests in 0.337s FAILED (failures=1) Testing against Django installed in '/testbed/django' Importing application forms_tests Found 121 test(s). Skipping setup of unused database(s): default, other. System check identified no issues (0 silenced). + git checkout 910ecd1b8df7678f45c3d507dde6bcb1faafa243 tests/forms_tests/tests/test_forms.py Updated 1 path from 7175c8df7b
+Please note that this error only occurs when rendering the subwidgets of a widget of type CheckboxSelectMultiple. This has nothing to do with the method BoundField.id_for_label().
+
+=== Test Verification Results ===
+Tests Passed: False

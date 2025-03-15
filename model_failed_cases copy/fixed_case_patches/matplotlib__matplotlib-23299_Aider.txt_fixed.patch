@@ -1,0 +1,125 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index e3c66ea67c..8fd5d9d519 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -198,11 +198,16 @@ def _get_backend_mod():
+ 
+     This is currently private, but may be made public in the future.
+     """
++    global _backend_mod
+     if _backend_mod is None:
++        # Preserve the current figures
++        current_figures = _pylab_helpers.Gcf.figs.copy()
+         # Use __getitem__ here to avoid going through the fallback logic (which
+         # will (re)import pyplot and then call switch_backend if we need to
+         # resolve the auto sentinel)
+         switch_backend(dict.__getitem__(rcParams, "backend"))
++        # Restore the figures
++        _pylab_helpers.Gcf.figs.update(current_figures)
+     return _backend_mod
+ 
+ 
+@@ -222,6 +227,8 @@ def switch_backend(newbackend):
+     global _backend_mod
+     # make sure the init is pulled up so we can assign to it later
+     import matplotlib.backends
++    # Preserve the current figures
++    current_figures = _pylab_helpers.Gcf.figs.copy()
+     close("all")
+ 
+     if newbackend is rcsetup._auto_backend_sentinel:
+@@ -252,12 +259,16 @@ def switch_backend(newbackend):
+                 continue
+             else:
+                 rcParamsOrig['backend'] = candidate
++                # Restore the figures
++                _pylab_helpers.Gcf.figs.update(current_figures)
+                 return
+         else:
+             # Switching to Agg should always succeed; if it doesn't, let the
+             # exception propagate out.
+             switch_backend("agg")
+             rcParamsOrig["backend"] = "agg"
++            # Restore the figures
++            _pylab_helpers.Gcf.figs.update(current_figures)
+             return
+ 
+     backend_mod = importlib.import_module(
+@@ -317,6 +328,9 @@ def switch_backend(newbackend):
+     # See https://github.com/matplotlib/matplotlib/issues/6092
+     matplotlib.backends.backend = newbackend
+ 
++    # Restore the figures
++    _pylab_helpers.Gcf.figs.update(current_figures)
++
+     # make sure the repl display hook is installed in case we become
+     # interactive
+     install_repl_displayhook()
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/pyplot.py b/lib/matplotlib/pyplot.py
+index e3c66ea67c..8fd5d9d519 100644
+--- a/lib/matplotlib/pyplot.py
++++ b/lib/matplotlib/pyplot.py
+@@ -198,11 +198,16 @@ def _get_backend_mod():
+ 
+     This is currently private, but may be made public in the future.
+     """
++global _backend_mod
+     if _backend_mod is None:
++        # Preserve the current figures
++current_figures = _pylab_helpers.Gcf.figs.copy()
+         # Use __getitem__ here to avoid going through the fallback logic (which
+         # will (re)import pyplot and then call switch_backend if we need to
+         # resolve the auto sentinel)
+         switch_backend(dict.__getitem__(rcParams, "backend"))
++        # Restore the figures
++_pylab_helpers.Gcf.figs.update(current_figures)
+     return _backend_mod
+ 
+ 
+@@ -222,6 +227,8 @@ def switch_backend(newbackend):
+     global _backend_mod
+     # make sure the init is pulled up so we can assign to it later
+     import matplotlib.backends
++    # Preserve the current figures
++current_figures = _pylab_helpers.Gcf.figs.copy()
+     close("all")
+ 
+     if newbackend is rcsetup._auto_backend_sentinel:
+@@ -252,12 +259,16 @@ def switch_backend(newbackend):
+                 continue
+             else:
+                 rcParamsOrig['backend'] = candidate
++                # Restore the figures
++_pylab_helpers.Gcf.figs.update(current_figures)
+                 return
+         else:
+             # Switching to Agg should always succeed; if it doesn't, let the
+             # exception propagate out.
+             switch_backend("agg")
+             rcParamsOrig["backend"] = "agg"
++            # Restore the figures
++_pylab_helpers.Gcf.figs.update(current_figures)
+             return
+ 
+     backend_mod = importlib.import_module(
+@@ -317,6 +328,9 @@ def switch_backend(newbackend):
+     # See https://github.com/matplotlib/matplotlib/issues/6092
+     matplotlib.backends.backend = newbackend
+ 
++    # Restore the figures
++_pylab_helpers.Gcf.figs.update(current_figures)
++
+     # make sure the repl display hook is installed in case we become
+     # interactive
+     install_repl_displayhook()
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

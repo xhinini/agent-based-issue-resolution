@@ -1,0 +1,61 @@
+=== Original Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..e2f29c9e65 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -975,8 +975,17 @@ class CharField(Field):
+                     id='fields.E121',
+                 )
+             ]
+-        else:
+-            return []
++        elif self.choices:
++            longest_choice = max((len(str(choice[0])) for choice in self.choices), default=0)
++            if self.max_length < longest_choice:
++                return [
++                    checks.Error(
++                        "'max_length' must be at least as long as the longest choice (%d characters)." % longest_choice,
++                        obj=self,
++                        id='fields.E122',
++                    )
++                ]
++        return []
+ 
+     def cast_db_type(self, connection):
+         if self.max_length is None:
+
+=== Fixed Patch ===
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..e2f29c9e65 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -975,8 +975,17 @@ class CharField(Field):
+                     id='fields.E121',
+                 )
+             ]
+-        else:
+-            return []
++        elif self.choices:
++longest_choice = max((len(str(choice[0])) for choice in self.choices), default=0)
++            if self.max_length < longest_choice:
++                return [
++                    checks.Error(
++("'max_length' must be at least as long as the longest choice (%d characters)." % longest_choice,)
++obj = (self,)
++id = ('fields.E122',)
++                    )
++                ]
++return []
+ 
+     def cast_db_type(self, connection):
+         if self.max_length is None:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+TypeError: 'ThingItem' object does not support indexing ====================================================================== FAIL: test_choices_in_max_length (invalid_models_tests.test_ordinary_fields.CharFieldTests) [field] ----------------------------------------------------------------------
+AssertionError: Lists differ: [<Err[27 chars]gth' must be at least as long as the longest c[96 chars]22'>] != [<Err[27 chars]gth' is too small to fit the longest value in [100 chars]09'>] First differing element 0: <Erro[26 chars]gth' must be at least as long as the longest c[95 chars]122'> <Erro[26 chars]gth' is too small to fit the longest value in [99 chars]009'> Diff is 732 characters long. Set self.maxDiff to None to see it. ====================================================================== FAIL: test_choices_in_max_length (invalid_models_tests.test_ordinary_fields.CharFieldTests) [group] ----------------------------------------------------------------------
+AssertionError: Lists differ: [<Err[27 chars]gth' must be at least as long as the longest c[96 chars]22'>] != [<Err[27 chars]gth' is too small to fit the longest value in [100 chars]09'>] First differing element 0: <Erro[26 chars]gth' must be at least as long as the longest c[95 chars]122'> <Erro[26 chars]gth' is too small to fit the longest value in [99 chars]009'> Diff is 732 characters long. Set self.maxDiff to None to see it. ---------------------------------------------------------------------- Ran 47 tests in 0.046s FAILED (failures=2, errors=1, skipped=2) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout fee75d2aed4e58ada6567c464cfd22e89dc65f4a tests/invalid_models_tests/test_ordinary_fields.py Updated 1 path from 9044ec218d
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,67 @@
+=== Original Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index d4e3cfcc90..e193a989a1 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -518,9 +518,14 @@ def vel(self, frame):
+         """
+ 
+         _check_frame(frame)
+-        if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
+-                             ' defined in ReferenceFrame ' + frame.name)
++        if frame not in self._vel_dict:
++            # Attempt to calculate the velocity if not explicitly defined
++            try:
++                pos = self.pos_from(Point('origin'))
++                return pos.dt(frame)
++            except ValueError:
++                raise ValueError('Velocity of point ' + self.name + ' has not been'
++                                 ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+
+=== Fixed Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index d4e3cfcc90..e193a989a1 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -518,9 +518,14 @@ def vel(self, frame):
+         """
+ 
+         _check_frame(frame)
+-        if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
+-                             ' defined in ReferenceFrame ' + frame.name)
++        if frame not in self._vel_dict:
++            # Attempt to calculate the velocity if not explicitly defined
++            try:
++pos = self.pos_from(Point('origin'))
++return pos.dt(frame)
++            except ValueError:
++                raise ValueError('Velocity of point ' + self.name + ' has not been'
++                                 ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: No Connecting Path found between origin and Q During handling of the above exception, another exception occurred:
+ValueError: Velocity of point Q has not been defined in ReferenceFrame N ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_multiple_point_path
+ValueError: No Connecting Path found between origin and P3 During handling of the above exception, another exception occurred:
+ValueError: Velocity of point P3 has not been defined in ReferenceFrame B ________________________________________________________________________________ ____ sympy/physics/vector/tests/test_point.py:test_auto_vel_dont_overwrite _____
+ValueError: No Connecting Path found between origin and P1 During handling of the above exception, another exception occurred:
+ValueError: Velocity of point P1 has not been defined in ReferenceFrame N ________________________________________________________________________________ __ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_shortest_path __
+ValueError: No Connecting Path found between origin and P4 During handling of the above exception, another exception occurred:
+ValueError: Velocity of point P4 has not been defined in ReferenceFrame B ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_connected_frames _
+ValueError: No Connecting Path found between origin and P During handling of the above exception, another exception occurred:
+ValueError: Velocity of point P has not been defined in ReferenceFrame N =========== tests finished: 9 passed, 5 exceptions, in 0.60 seconds ============ DO *NOT* COMMIT! + git checkout d57aaf064041fe52c0fa357639b069100f8b28e1 sympy/physics/vector/tests/test_point.py Updated 1 path from 479269d1df
+ValueError                                Traceback (most recent call last)
+454             raise ValueError('Velocity of point ' + self.name + ' has not been'
+ValueError: Velocity of point Q has not been defined in ReferenceFrame A
+
+=== Test Verification Results ===
+Tests Passed: False

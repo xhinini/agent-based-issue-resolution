@@ -1,0 +1,44 @@
+=== Original Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index d4e3cfcc90..4c4fbb1fc5 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -519,6 +519,8 @@ def vel(self, frame):
+ 
+         _check_frame(frame)
+         if not (frame in self._vel_dict):
++            if frame in self._pos_dict:
++                return self._pos_dict[frame].dt(frame)
+             raise ValueError('Velocity of point ' + self.name + ' has not been'
+                              ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+
+=== Fixed Patch ===
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+index d4e3cfcc90..4c4fbb1fc5 100644
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -519,6 +519,8 @@ def vel(self, frame):
+ 
+         _check_frame(frame)
+         if not (frame in self._vel_dict):
++            if frame in self._pos_dict:
++return self._pos_dict[frame].dt(frame)
+             raise ValueError('Velocity of point ' + self.name + ' has not been'
+                              ' defined in ReferenceFrame ' + frame.name)
+         return self._vel_dict[frame]
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ValueError: Velocity of point Q has not been defined in ReferenceFrame N ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_multiple_point_path
+ValueError: Velocity of point P3 has not been defined in ReferenceFrame B ________________________________________________________________________________ ____ sympy/physics/vector/tests/test_point.py:test_auto_vel_dont_overwrite _____
+ValueError: Velocity of point P1 has not been defined in ReferenceFrame N ________________________________________________________________________________ __ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_shortest_path __
+ValueError: Velocity of point P4 has not been defined in ReferenceFrame B ________________________________________________________________________________ sympy/physics/vector/tests/test_point.py:test_auto_point_vel_connected_frames _
+ValueError: Velocity of point P has not been defined in ReferenceFrame N =========== tests finished: 9 passed, 5 exceptions, in 0.70 seconds ============ DO *NOT* COMMIT! + git checkout d57aaf064041fe52c0fa357639b069100f8b28e1 sympy/physics/vector/tests/test_point.py Updated 1 path from 479269d1df
+ValueError                                Traceback (most recent call last)
+454             raise ValueError('Velocity of point ' + self.name + ' has not been'
+ValueError: Velocity of point Q has not been defined in ReferenceFrame A
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,56 @@
+=== Original Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..5da4f10f0f 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -182,7 +182,13 @@ def _print_Mul(self, expr):
+             x.appendChild(self.dom.createElement('divide'))
+             x.appendChild(self._print(numer))
+             x.appendChild(self._print(denom))
+-            return x
++    def _print_Indexed(self, expr):
++        x = self.dom.createElement('apply')
++        x.appendChild(self.dom.createElement('selector'))
++        x.appendChild(self._print(expr.base))
++        for index in expr.indices:
++            x.appendChild(self._print(index))
++        return x
+ 
+         coeff, terms = expr.as_coeff_mul()
+         if coeff is S.One and len(terms) == 1:
+
+=== Fixed Patch ===
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..5da4f10f0f 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -182,7 +182,13 @@ def _print_Mul(self, expr):
+             x.appendChild(self.dom.createElement('divide'))
+             x.appendChild(self._print(numer))
+             x.appendChild(self._print(denom))
+-            return x
++    def _print_Indexed(self, expr):
++x = self.dom.createElement('apply')
++x.appendChild(self.dom.createElement('selector'))
++x.appendChild(self._print(expr.base))
++        for index in expr.indices:
++x.appendChild(self._print(index))
++return x
+ 
+         coeff, terms = expr.as_coeff_mul()
+         if coeff is S.One and len(terms) == 1:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AttributeError: 'NoneType' object has no attribute 'nodeName' ________________________________________________________________________________ ______ sympy/printing/tests/test_mathml.py:test_content_mathml_functions _______
+AttributeError: 'NoneType' object has no attribute 'nodeType' ________________________________________________________________________________ ________ sympy/printing/tests/test_mathml.py:test_content_mathml_limits ________
+AttributeError: 'NoneType' object has no attribute 'nodeType' ________________________________________________________________________________ ________ sympy/printing/tests/test_mathml.py:test_content_mathml_order _________
+AttributeError: 'NoneType' object has no attribute 'nodeType' ________________________________________________________________________________ ___________ sympy/printing/tests/test_mathml.py:test_print_intervals ___________
+Writing an `Indexed` object to MathML fails with a `TypeError` exception: `TypeError: 'Indexed' object is not iterable`:
+TypeError                                 Traceback (most recent call last)
+TypeError: 'Indexed' object is not iterable
+It also fails for more complex expressions where at least one element is Indexed.
+
+=== Test Verification Results ===
+Tests Passed: False

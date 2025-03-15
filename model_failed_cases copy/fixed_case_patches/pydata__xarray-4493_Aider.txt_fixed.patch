@@ -1,0 +1,77 @@
+=== Original Patch ===
+diff --git a/xarray/core/dataset.py b/xarray/core/dataset.py
+index 8376b487..fa4f63bd 100644
+--- a/xarray/core/dataset.py
++++ b/xarray/core/dataset.py
+@@ -33,6 +33,7 @@ from typing import (
+ 
+ import numpy as np
+ import pandas as pd
++import dask
+ 
+ import xarray as xr
+ 
+@@ -3907,6 +3908,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
+             dataset.
+         """
+         merge_result = dataset_update_method(self, other)
++        new_vars = merge_result.variables
++        for k, v in new_vars.items():
++            if isinstance(v.data, dask.array.Array):
++                new_vars[k] = v.chunk(v.data.chunks)
+         return self._replace(inplace=True, **merge_result._asdict())
+ 
+     def merge(
+
+=== Fixed Patch ===
+diff --git a/xarray/core/dataset.py b/xarray/core/dataset.py
+index 8376b487..fa4f63bd 100644
+--- a/xarray/core/dataset.py
++++ b/xarray/core/dataset.py
+@@ -33,6 +33,7 @@ from typing import (
+ 
+ import numpy as np
+ import pandas as pd
++import dask
+ 
+ import xarray as xr
+ 
+@@ -3907,6 +3908,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
+             dataset.
+         """
+         merge_result = dataset_update_method(self, other)
++new_vars = merge_result.variables
++        for k, v in new_vars.items():
++            if isinstance(v.data, dask.array.Array):
++new_vars[k] = v.chunk(v.data.chunks)
+         return self._replace(inplace=True, **merge_result._asdict())
+ 
+     def merge(
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+commit: None
+LC_ALL: None
+libnetcdf: None
+netCDF4: None
+pydap: None
+h5netcdf: None
+Nio: None
+zarr: None
+cftime: None
+nc_time_axis: None
+PseudoNetCDF: None
+rasterio: None
+cfgrib: None
+iris: None
+bottleneck: None
+cartopy: None
+seaborn: None
+numbagg: None
+pint: None
+conda: None
+sphinx: None
+
+=== Test Verification Results ===
+Tests Passed: False

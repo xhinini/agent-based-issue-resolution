@@ -1,0 +1,49 @@
+=== Original Patch ===
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index fa99708..a70b616 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -671,9 +671,11 @@ def tree_cse(exprs, symbols, opt_subs=None, order='canonical', ignore=()):
+             except StopIteration:
+                 raise ValueError("Symbols iterator ran out of symbols.")
+ 
+-            if isinstance(orig_expr, MatrixExpr):
+-                sym = MatrixSymbol(sym.name, orig_expr.rows,
+-                    orig_expr.cols)
++            if isinstance(orig_expr, MatrixSymbol):
++                sym = MatrixSymbol(sym.name, orig_expr.rows, orig_expr.cols)
++                for i in range(orig_expr.rows):
++                    for j in range(orig_expr.cols):
++                        subs[orig_expr[i, j]] = sym[i, j]
+ 
+             subs[orig_expr] = sym
+             replacements.append((sym, new_expr))
+
+=== Fixed Patch ===
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index fa99708..a70b616 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -671,9 +671,11 @@ def tree_cse(exprs, symbols, opt_subs=None, order='canonical', ignore=()):
+             except StopIteration:
+                 raise ValueError("Symbols iterator ran out of symbols.")
+ 
+-            if isinstance(orig_expr, MatrixExpr):
+-                sym = MatrixSymbol(sym.name, orig_expr.rows,
+-                    orig_expr.cols)
++            if isinstance(orig_expr, MatrixSymbol):
++sym = MatrixSymbol(sym.name, orig_expr.rows, orig_expr.cols)
++                for i in range(orig_expr.rows):
++                    for j in range(orig_expr.cols):
++subs[orig_expr[i, j]] = sym[i, j]
+ 
+             subs[orig_expr] = sym
+             replacements.append((sym, new_expr))
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

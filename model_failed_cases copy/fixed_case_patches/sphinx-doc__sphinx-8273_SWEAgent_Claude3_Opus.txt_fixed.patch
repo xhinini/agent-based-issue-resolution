@@ -1,0 +1,132 @@
+=== Original Patch ===
+diff --git a/sphinx/builders/manpage.py b/sphinx/builders/manpage.py
+index 4166dece9..fecfa5878 100644
+--- a/sphinx/builders/manpage.py
++++ b/sphinx/builders/manpage.py
+@@ -83,7 +83,7 @@ class ManualPageBuilder(Builder):
+             targetname = '%s.%s' % (name, section)
+             logger.info(darkgreen(targetname) + ' { ', nonl=True)
+             destination = FileOutput(
+-                destination_path=path.join(self.outdir, targetname),
++                destination_path=path.join(self.outdir, 'man' + section, targetname),
+                 encoding='utf-8')
+ 
+             tree = self.env.get_doctree(docname)
+diff --git a/test_docs/Makefile b/test_docs/Makefile
+new file mode 100644
+index 000000000..5a4746e4e
+--- /dev/null
++++ b/test_docs/Makefile
+@@ -0,0 +1,18 @@
++# Minimal makefile for Sphinx documentation
++
++# You can set these variables from the command line.
++SPHINXOPTS    =
++SPHINXBUILD   = sphinx-build
++SOURCEDIR     = .
++BUILDDIR      = _build
++
++# Put it first so that "make" without argument is like "make help".
++help:
++	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
++
++.PHONY: help Makefile
++
++# Catch-all target: route all unknown targets to Sphinx using the new
++# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
++%: Makefile
++	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+diff --git a/test_docs/conf.py b/test_docs/conf.py
+new file mode 100644
+index 000000000..050588e80
+--- /dev/null
++++ b/test_docs/conf.py
+@@ -0,0 +1,9 @@
++project = 'Test Project'
++author = 'Test Author'
++release = '0.1'
++
++extensions = []
++
++man_pages = [
++    ('index', 'testproject', 'Test Project Documentation', [author], 1),
++]
+diff --git a/test_docs/index.rst b/test_docs/index.rst
+new file mode 100644
+index 000000000..d8f884ad1
+--- /dev/null
++++ b/test_docs/index.rst
+@@ -0,0 +1,4 @@
++Test Project Documentation
++==========================
++
++This is a test project.
+
+=== Fixed Patch ===
+diff --git a/sphinx/builders/manpage.py b/sphinx/builders/manpage.py
+index 4166dece9..fecfa5878 100644
+--- a/sphinx/builders/manpage.py
++++ b/sphinx/builders/manpage.py
+@@ -83,7 +83,7 @@ class ManualPageBuilder(Builder):
+             targetname = '%s.%s' % (name, section)
+             logger.info(darkgreen(targetname) + ' { ', nonl=True)
+             destination = FileOutput(
+-                destination_path=path.join(self.outdir, targetname),
++destination_path = (path.join(self.outdir, 'man' + section, targetname),)
+                 encoding='utf-8')
+ 
+             tree = self.env.get_doctree(docname)
+diff --git a/test_docs/Makefile b/test_docs/Makefile
+index 000000000..5a4746e4e
+--- /dev/null
++++ b/test_docs/Makefile
+@@ -0,0 +1,18 @@
++# Minimal makefile for Sphinx documentation
++
++# You can set these variables from the command line.
++SPHINXOPTS    =
++SPHINXBUILD = sphinx - build
++SOURCEDIR     = .
++BUILDDIR = _build
++
++# Put it first so that "make" without argument is like "make help".
++help:
++	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
++
++.PHONY: help Makefile
++
++# Catch-all target: route all unknown targets to Sphinx using the new
++# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
++%: Makefile
++	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+diff --git a/test_docs/conf.py b/test_docs/conf.py
+index 000000000..050588e80
+--- /dev/null
++++ b/test_docs/conf.py
+@@ -0,0 +1,9 @@
++project = 'Test Project'
++author = 'Test Author'
++release = '0.1'
++
++extensions = []
++
++man_pages = [
++(('index', 'testproject', 'Test Project Documentation', [author], 1),)
++]
+diff --git a/test_docs/index.rst b/test_docs/index.rst
+index 000000000..d8f884ad1
+--- /dev/null
++++ b/test_docs/index.rst
+@@ -0,0 +1,4 @@
++Test Project Documentation
++==========================
++
++This is a test project.
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,150 @@
+=== Original Patch ===
+diff --git a/sympy/matrices/expressions/matexpr.py b/sympy/matrices/expressions/matexpr.py
+index 78db834466..a7ceadc6fc 100644
+--- a/sympy/matrices/expressions/matexpr.py
++++ b/sympy/matrices/expressions/matexpr.py
+@@ -231,6 +231,7 @@ def _check_dim(cls, dim):
+ 
+ 
+     def _entry(self, i, j, **kwargs):
++        return MatrixElement(self, i, j)
+         raise NotImplementedError(
+             "Indexing not implemented for %s" % self.__class__.__name__)
+ 
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index d649dd02a9..5b4aab11b4 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -146,7 +146,8 @@ def cse_release_variables(r, e):
+             rv.extend([(s, None) for s in sorted(c, key=str)])
+         if i >= len(r):
+             rv.append((syms.pop(), _p))
+-        else:
++        elif isinstance(e, MatrixSymbol):
++            temp.append(Tuple(*[e[i, j] for i in range(e.shape[0]) for j in range(e.shape[1])]))
+             rv.append((s[i], _p))
+         in_use -= c
+         i -= 1
+@@ -784,7 +785,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+         exprs = sympify(exprs)
+ 
+     # Handle the case if just one expression was passed.
+-    if isinstance(exprs, (Basic, MatrixBase)):
++    if isinstance(exprs, (Basic, MatrixBase, MatrixSymbol)):
+         exprs = [exprs]
+ 
+     copy = exprs
+@@ -793,6 +794,14 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+         if isinstance(e, (Matrix, ImmutableMatrix)):
+             temp.append(Tuple(*e.flat()))
+         elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
++            m = SparseMatrix(e.rows, e.cols, {})
++            for k, v in reduced_exprs[i]:
++                m[k] = v
++            if isinstance(e, ImmutableSparseMatrix):
++                m = m.as_immutable()
++            reduced_exprs[i] = m
++        elif isinstance(e, MatrixSymbol):
++            reduced_exprs[i] = Matrix(e.shape[0], e.shape[1], reduced_exprs[i])
+             temp.append(Tuple(*e.todok().items()))
+         else:
+             temp.append(e)
+
+=== Fixed Patch ===
+diff --git a/sympy/matrices/expressions/matexpr.py b/sympy/matrices/expressions/matexpr.py
+index 78db834466..a7ceadc6fc 100644
+--- a/sympy/matrices/expressions/matexpr.py
++++ b/sympy/matrices/expressions/matexpr.py
+@@ -231,6 +231,7 @@ def _check_dim(cls, dim):
+ 
+ 
+     def _entry(self, i, j, **kwargs):
++return MatrixElement(self, i, j)
+         raise NotImplementedError(
+             "Indexing not implemented for %s" % self.__class__.__name__)
+ 
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index d649dd02a9..5b4aab11b4 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -146,7 +146,8 @@ def cse_release_variables(r, e):
+             rv.extend([(s, None) for s in sorted(c, key=str)])
+         if i >= len(r):
+             rv.append((syms.pop(), _p))
+-        else:
++        elif isinstance(e, MatrixSymbol):
++temp.append(Tuple(*[e[i, j] for i in range(e.shape[0]) for j in range(e.shape[1])]))
+             rv.append((s[i], _p))
+         in_use -= c
+         i -= 1
+@@ -784,7 +785,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+         exprs = sympify(exprs)
+ 
+     # Handle the case if just one expression was passed.
+-    if isinstance(exprs, (Basic, MatrixBase)):
++    if isinstance(exprs, (Basic, MatrixBase, MatrixSymbol)):
+         exprs = [exprs]
+ 
+     copy = exprs
+@@ -793,6 +794,14 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+         if isinstance(e, (Matrix, ImmutableMatrix)):
+             temp.append(Tuple(*e.flat()))
+         elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
++m = SparseMatrix(e.rows, e.cols, {})
++            for k, v in reduced_exprs[i]:
++m[k] = v
++            if isinstance(e, ImmutableSparseMatrix):
++m = m.as_immutable()
++reduced_exprs[i] = m
++        elif isinstance(e, MatrixSymbol):
++reduced_exprs[i] = Matrix(e.shape[0], e.shape[1], reduced_exprs[i])
+             temp.append(Tuple(*e.todok().items()))
+         else:
+             temp.append(e)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_cse_single2 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_cse_not_possible ____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ __________ sympy/simplify/tests/test_cse.py:test_nested_substitution ___________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_subtraction_opt _____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ __________ sympy/simplify/tests/test_cse.py:test_multiple_expressions __________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ________ sympy/simplify/tests/test_cse.py:test_bypass_non_commutatives _________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_4498 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_4020 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_4203 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_6263 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_dont_cse_tuples _____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_pow_invpow _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_postprocess _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_4499 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_6169 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_cse_Indexed _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_cse_MatrixSymbol ____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _____________ sympy/simplify/tests/test_cse.py:test_cse_MatrixExpr _____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_Piecewise ________________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ___________ sympy/simplify/tests/test_cse.py:test_ignore_order_terms ___________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _____________ sympy/simplify/tests/test_cse.py:test_name_conflict ______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______ sympy/simplify/tests/test_cse.py:test_name_conflict_cust_symbols _______
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ________ sympy/simplify/tests/test_cse.py:test_symbols_exhausted_error _________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_7840 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_issue_8891 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_issue_11230 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_hollow_rejection ____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _______________ sympy/simplify/tests/test_cse.py:test_cse_ignore _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _________ sympy/simplify/tests/test_cse.py:test_cse_ignore_issue_15002 _________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_cse__performance ____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_issue_12070 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_issue_13000 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______________ sympy/simplify/tests/test_cse.py:test_issue_18203 _______________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_unevaluated_mul _____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _________ sympy/simplify/tests/test_cse.py:test_cse_release_variables __________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ________________ sympy/simplify/tests/test_cse.py:test_cse_list ________________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ____________ sympy/simplify/tests/test_cse.py:test_unevaluated_Mul _____________
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ ______ sympy/utilities/tests/test_codegen.py:test_multidim_c_argument_cse ______
+NameError: name 'MatrixSymbol' is not defined ________________________________________________________________________________ _____________ sympy/utilities/tests/test_codegen.py:test_ccode_cse _____________
+NameError: name 'MatrixSymbol' is not defined tests finished: 59 passed, 5 expected to fail, 40 exceptions, in 9.50 seconds = DO *NOT* COMMIT! + git checkout d822fcba181155b85ff2b29fe525adbafb22b448 sympy/simplify/tests/test_cse.py sympy/utilities/tests/test_codegen.py Updated 2 paths from 7618ee7ffe
+
+=== Test Verification Results ===
+Tests Passed: False

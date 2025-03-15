@@ -1,0 +1,62 @@
+=== Original Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index 6b78c94..fab47a0 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -421,8 +421,7 @@ setup(ext_modules=cythonize(ext_mods, **cy_opts))
+                 py_args.append(arg)
+             else:
+                 py_args.append(arg)
+-        # Find arguments that are array dimensions. These can be inferred
+-        # locally in the Cython code.
++            # Ensure that any arguments with dimensions are recognized as arrays
+             if isinstance(arg, (InputArgument, InOutArgument)) and arg.dimensions:
+                 dims = [d[1] + 1 for d in arg.dimensions]
+                 sym_dims = [(i, d) for (i, d) in enumerate(dims) if
+@@ -447,7 +446,7 @@ setup(ext_modules=cythonize(ext_mods, **cy_opts))
+             mtype = np_types[t]
+             return mat_dec.format(mtype=mtype, ndim=ndim, name=self._string_var(arg.name))
+         else:
+-            return "%s %s" % (t, self._string_var(arg.name))
++            return "%s *%s" % (t, self._string_var(arg.name)) if arg.dimensions else "%s %s" % (t, self._string_var(arg.name))
+ 
+     def _declare_arg(self, arg):
+         proto = self._prototype_arg(arg)
+
+=== Fixed Patch ===
+diff --git a/sympy/utilities/autowrap.py b/sympy/utilities/autowrap.py
+index 6b78c94..fab47a0 100644
+--- a/sympy/utilities/autowrap.py
++++ b/sympy/utilities/autowrap.py
+@@ -421,8 +421,7 @@ setup(ext_modules=cythonize(ext_mods, **cy_opts))
+                 py_args.append(arg)
+             else:
+                 py_args.append(arg)
+-        # Find arguments that are array dimensions. These can be inferred
+-        # locally in the Cython code.
++            # Ensure that any arguments with dimensions are recognized as arrays
+             if isinstance(arg, (InputArgument, InOutArgument)) and arg.dimensions:
+                 dims = [d[1] + 1 for d in arg.dimensions]
+                 sym_dims = [(i, d) for (i, d) in enumerate(dims) if
+@@ -447,7 +446,7 @@ setup(ext_modules=cythonize(ext_mods, **cy_opts))
+             mtype = np_types[t]
+             return mat_dec.format(mtype=mtype, ndim=ndim, name=self._string_var(arg.name))
+         else:
+-            return "%s %s" % (t, self._string_var(arg.name))
++return '%s *%s' % (t, self._string_var(arg.name)) if arg.dimensions else '%s %s' % (t, self._string_var(arg.name))
+ 
+     def _declare_arg(self, arg):
+         proto = self._prototype_arg(arg)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+autowrap with cython backend fails when array arguments do not appear in wrapped expr
+This should of course return `1.0` but instead fails with:
+TypeError: only size-1 arrays can be converted to Python scalars
+A little inspection reveals that this is because the corresponding C function is generated with an incorrect signature:
+I've found that this error won't occur so long as `expr` depends at least in part on each argument. For example this slight modification of the above counterexample works perfectly:
+# returns 1.0 as expected, without failure
+
+=== Test Verification Results ===
+Tests Passed: False

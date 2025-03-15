@@ -1,0 +1,36 @@
+=== Original Patch ===
+diff --git a/reproduce.py b/reproduce.py
+new file mode 100644
+index 0000000000..17d9ad7510
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,7 @@
++from sympy import *
++x = Symbol('x')
++print("Intersection args:", {1},{1},{x})
++print(Intersection({1},{1},{x}))
++print("---")
++print("Intersection args:", {1},{x})  
++print(Intersection({1},{x}))
+
+=== Fixed Patch ===
+diff --git a/reproduce.py b/reproduce.py
+index 0000000000..17d9ad7510
+--- /dev/null
++++ b/reproduce.py
+@@ -0,0 +1,7 @@
++from sympy import *
++x = Symbol('x')
++print('Intersection args:', {1}, {1}, {x})
++print(Intersection({1}, {1}, {x}))
++print('---')
++print('Intersection args:', {1}, {x})
++print(Intersection({1}, {x}))
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

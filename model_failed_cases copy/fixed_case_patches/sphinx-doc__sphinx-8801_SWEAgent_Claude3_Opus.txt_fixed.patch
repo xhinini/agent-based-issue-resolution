@@ -1,0 +1,74 @@
+=== Original Patch ===
+diff --git a/conf.py b/conf.py
+new file mode 100644
+index 000000000..974abbfbf
+--- /dev/null
++++ b/conf.py
+@@ -0,0 +1,4 @@
++extensions = ['sphinx.ext.autodoc']
++source_suffix = '.rst'
++master_doc = 'index'
++html_theme = 'alabaster'
+diff --git a/example.py b/example.py
+new file mode 100644
+index 000000000..5498f60be
+--- /dev/null
++++ b/example.py
+@@ -0,0 +1,8 @@
++class Foo:
++    """docstring"""
++    attr1: int  #: docstring
++
++
++class Bar(Foo):
++    """docstring"""
++    attr2: str  #: docstring
+diff --git a/index.rst b/index.rst
+new file mode 100644
+index 000000000..f769cfbb0
+--- /dev/null
++++ b/index.rst
+@@ -0,0 +1,3 @@
++.. autoclass:: example.Bar
++   :members:
++   :inherited-members:
+
+=== Fixed Patch ===
+diff --git a/conf.py b/conf.py
+index 000000000..974abbfbf
+--- /dev/null
++++ b/conf.py
+@@ -0,0 +1,4 @@
++extensions = ['sphinx.ext.autodoc']
++source_suffix = '.rst'
++master_doc = 'index'
++html_theme = 'alabaster'
+diff --git a/example.py b/example.py
+index 000000000..5498f60be
+--- /dev/null
++++ b/example.py
+@@ -0,0 +1,8 @@
++class Foo:
++'docstring'
++attr1: int
++
++
++class Bar(Foo):
++'docstring'
++attr2: str
+diff --git a/index.rst b/index.rst
+index 000000000..f769cfbb0
+--- /dev/null
++++ b/index.rst
+@@ -0,0 +1,3 @@
++.. autoclass:: example.Bar
++   :members:
++   :inherited-members:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+`Bar.attr1` is not documented. It will be shown if I give `:undoc-members:` option to the autoclass directive call. It seems the attribute is treated as undocumented.
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,58 @@
+=== Original Patch ===
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 9b00e24509..141531b806 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -31,9 +31,14 @@ from .utils import get_callable
+ 
+ class ResolverMatch:
+     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None, route=None, tried=None):
+-        self.func = func
+-        self.args = args
+-        self.kwargs = kwargs
++        if isinstance(func, functools.partial):
++            self.func = func.func
++            self.args = func.args + args
++            self.kwargs = {**func.keywords, **kwargs}
++        else:
++            self.func = func
++            self.args = args
++            self.kwargs = kwargs
+         self.url_name = url_name
+         self.route = route
+         self.tried = tried
+
+=== Fixed Patch ===
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 9b00e24509..141531b806 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -31,9 +31,14 @@ from .utils import get_callable
+ 
+ class ResolverMatch:
+     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None, route=None, tried=None):
+-        self.func = func
+-        self.args = args
+-        self.kwargs = kwargs
++        if isinstance(func, functools.partial):
++self.func = func.func
++self.args = func.args + args
++self.kwargs = {**func.keywords, **kwargs}
++        else:
++self.func = func
++self.args = args
++self.kwargs = kwargs
+         self.url_name = url_name
+         self.route = route
+         self.tried = tried
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+AssertionError: "Reso[87 chars]name=no-kwargs, app_names=[], namespaces=[], r[32 chars])/$)" != "Reso[87 chars]name='no-kwargs', app_names=[], namespaces=[],[36 chars]/$')" - ResolverMatch(func=urlpatterns_reverse.views.empty_view, args=('42', '37'), kwargs={}, url_name=no-kwargs, app_names=[], namespaces=[], route=^no_kwargs/([0-9]+)/([0-9]+)/$) + ResolverMatch(func=urlpatterns_reverse.views.empty_view, args=('42', '37'), kwargs={}, url_name='no-kwargs', app_names=[], namespaces=[], route='^no_kwargs/([0-9]+)/([0-9]+)/$') ?                                                                                                 +         +                                     +                              + ====================================================================== FAIL: test_repr_functools_partial (urlpatterns_reverse.tests.ResolverMatchTests) (name='partial') ----------------------------------------------------------------------
+AssertionError: "ResolverMatch(func=urlpatterns_reverse.views.empty_view, arg[107 chars]al/)" != "ResolverMatch(func=functools.partial(<function empty_view at[132 chars]l/')" - ResolverMatch(func=urlpatterns_reverse.views.empty_view, args=(), kwargs={'template_name': 'template.html'}, url_name=partial, app_names=[], namespaces=[], route=partial/) + ResolverMatch(func=functools.partial(<function empty_view at 0x7689a3f1b550>, template_name='template.html'), args=(), kwargs={}, url_name='partial', app_names=[], namespaces=[], route='partial/') ====================================================================== FAIL: test_repr_functools_partial (urlpatterns_reverse.tests.ResolverMatchTests) (name='partial_nested') ----------------------------------------------------------------------
+AssertionError: "ResolverMatch(func=urlpatterns_reverse.views.empty_view, arg[127 chars]ed/)" != "ResolverMatch(func=functools.partial(<function empty_view at[152 chars]d/')" - ResolverMatch(func=urlpatterns_reverse.views.empty_view, args=(), kwargs={'template_name': 'nested_partial.html'}, url_name=partial_nested, app_names=[], namespaces=[], route=partial_nested/) + ResolverMatch(func=functools.partial(<function empty_view at 0x7689a3f1b550>, template_name='nested_partial.html'), args=(), kwargs={}, url_name='partial_nested', app_names=[], namespaces=[], route='partial_nested/') ====================================================================== FAIL: test_repr_functools_partial (urlpatterns_reverse.tests.ResolverMatchTests) (name='partial_wrapped') ----------------------------------------------------------------------
+AssertionError: "ResolverMatch(func=urlpatterns_reverse.views.empty_view, arg[123 chars]ed/)" != "ResolverMatch(func=functools.partial(<function empty_view at[148 chars]d/')" - ResolverMatch(func=urlpatterns_reverse.views.empty_view, args=(), kwargs={'template_name': 'template.html'}, url_name=partial_wrapped, app_names=[], namespaces=[], route=partial_wrapped/) + ResolverMatch(func=functools.partial(<function empty_view at 0x7689a3f1b550>, template_name='template.html'), args=(), kwargs={}, url_name='partial_wrapped', app_names=[], namespaces=[], route='partial_wrapped/') ---------------------------------------------------------------------- Ran 95 tests in 0.707s FAILED (failures=4) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout 2f13c476abe4ba787b6cb71131818341911f43cc tests/urlpatterns_reverse/tests.py Updated 1 path from 444e1f2af1
+
+=== Test Verification Results ===
+Tests Passed: False

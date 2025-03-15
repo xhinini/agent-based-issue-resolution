@@ -1,0 +1,59 @@
+=== Original Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 53e783e..65bc685 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -110,15 +110,14 @@ def exclude_members_option(arg: Any) -> Union[object, Set[str]]:
+ 
+ 
+ def inherited_members_option(arg: Any) -> Union[object, Set[str]]:
+-    """Used to convert the :members: option to auto directives."""
++    """Used to convert the :inherited-members: option to auto directives."""
+     if arg in (None, True):
+-        return 'object'
+-    else:
+-        return arg
++        return set()
++    return {x.strip() for x in arg.split(',') if x.strip()}
+ 
+ 
+ def member_order_option(arg: Any) -> Optional[str]:
+-    """Used to convert the :members: option to auto directives."""
++    """Used to convert the :inherited-members: option to auto directives."""
+     if arg in (None, True):
+         return None
+     elif arg in ('alphabetical', 'bysource', 'groupwise'):
+
+=== Fixed Patch ===
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+index 53e783e..65bc685 100644
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -110,15 +110,14 @@ def exclude_members_option(arg: Any) -> Union[object, Set[str]]:
+ 
+ 
+ def inherited_members_option(arg: Any) -> Union[object, Set[str]]:
+-    """Used to convert the :members: option to auto directives."""
++'Used to convert the :inherited-members: option to auto directives.'
+     if arg in (None, True):
+-        return 'object'
+-    else:
+-        return arg
++return set()
++return {x.strip() for x in arg.split(',') if x.strip()}
+ 
+ 
+ def member_order_option(arg: Any) -> Optional[str]:
+-    """Used to convert the :members: option to auto directives."""
++'Used to convert the :inherited-members: option to auto directives.'
+     if arg in (None, True):
+         return None
+     elif arg in ('alphabetical', 'bysource', 'groupwise'):
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

@@ -1,0 +1,58 @@
+=== Original Patch ===
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..98523ec599 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -762,10 +762,16 @@ class ChoiceField(Field):
+         'invalid_choice': _('Select a valid choice. %(value)s is not one of the available choices.'),
+     }
+ 
+-    def __init__(self, *, choices=(), **kwargs):
++    def __init__(self, *, choices=(), max_length=None, **kwargs):
+         super().__init__(**kwargs)
+         self.choices = choices
+-
++        self.max_length = max_length
++        if self.max_length is not None:
++            for choice in self.choices:
++                if len(str(choice[0])) > self.max_length:
++                    raise ValidationError(
++                        f"Choice '{choice[0]}' exceeds max_length of {self.max_length}"
++                    )
+     def __deepcopy__(self, memo):
+         result = super().__deepcopy__(memo)
+         result._choices = copy.deepcopy(self._choices, memo)
+
+=== Fixed Patch ===
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..98523ec599 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -762,10 +762,16 @@ class ChoiceField(Field):
+         'invalid_choice': _('Select a valid choice. %(value)s is not one of the available choices.'),
+     }
+ 
+-    def __init__(self, *, choices=(), **kwargs):
++    def __init__(self, *, choices=(), max_length=None, **kwargs):
+         super().__init__(**kwargs)
+         self.choices = choices
+-
++self.max_length = max_length
++        if self.max_length is not None:
++            for choice in self.choices:
++                if len(str(choice[0])) > self.max_length:
++                    raise ValidationError(
++f"Choice '{choice[0]}' exceeds max_length of {self.max_length}"
++                    )
+     def __deepcopy__(self, memo):
+         result = super().__deepcopy__(memo)
+         result._choices = copy.deepcopy(self._choices, memo)
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
++ [<Error: level=40, msg="'max_length' is too small to fit the longest value in 'choices' (3 characters).", hint=None, obj=<django.db.models.fields.CharField: field>, id='fields.E009'>] ====================================================================== FAIL: test_choices_in_max_length (invalid_models_tests.test_ordinary_fields.CharFieldTests) [group] ----------------------------------------------------------------------
++ [<Error: level=40, msg="'max_length' is too small to fit the longest value in 'choices' (6 characters).", hint=None, obj=<django.db.models.fields.CharField: group>, id='fields.E009'>] ---------------------------------------------------------------------- Ran 47 tests in 0.032s FAILED (failures=2, skipped=2) Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')... + git checkout fee75d2aed4e58ada6567c464cfd22e89dc65f4a tests/invalid_models_tests/test_ordinary_fields.py Updated 1 path from 9044ec218d
+
+=== Test Verification Results ===
+Tests Passed: False

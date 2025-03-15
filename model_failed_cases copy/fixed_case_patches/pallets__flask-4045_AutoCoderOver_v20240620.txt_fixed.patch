@@ -1,0 +1,39 @@
+=== Original Patch ===
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+index 5fb84d86..b7667aeb 100644
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -188,6 +188,8 @@ class Blueprint(Scaffold):
+             template_folder=template_folder,
+             root_path=root_path,
+         )
++        if '.' in name:
++            raise ValueError("Blueprint names cannot contain dots.")
+         self.name = name
+         self.url_prefix = url_prefix
+         self.subdomain = subdomain
+
+=== Fixed Patch ===
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+index 5fb84d86..b7667aeb 100644
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -188,6 +188,8 @@ class Blueprint(Scaffold):
+             template_folder=template_folder,
+             root_path=root_path,
+         )
++        if '.' in name:
++raise ValueError('Blueprint names cannot contain dots.')
+         self.name = name
+         self.url_prefix = url_prefix
+         self.subdomain = subdomain
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+FAILED tests/test_basic.py::test_max_cookie_size - TypeError: __init__() got ... FAILED tests/test_blueprints.py::test_blueprint_specific_error_handling - Dep... FAILED tests/test_blueprints.py::test_blueprint_specific_user_error_handling FAILED tests/test_blueprints.py::test_blueprint_app_error_handling - Deprecat... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[-/-/] - Deprecat... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/--/] - Deprecat... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/-/-/] - Depreca... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo--/foo] - De... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo/--/foo/] - ... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[-/bar-/bar] - De... FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo/-/bar-/foo/bar] FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo/-bar-/foo/bar] FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo-/bar-/foo/bar] FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo/-//bar-/foo/bar] FAILED tests/test_blueprints.py::test_blueprint_prefix_slash[/foo//-/bar-/foo/bar] FAILED tests/test_blueprints.py::test_blueprint_url_defaults - DeprecationWar... FAILED tests/test_blueprints.py::test_blueprint_url_processors - DeprecationW... FAILED tests/test_blueprints.py::test_default_static_max_age - DeprecationWar... FAILED tests/test_blueprints.py::test_dotted_names_from_app - DeprecationWarn... FAILED tests/test_blueprints.py::test_empty_url_defaults - DeprecationWarning... FAILED tests/test_blueprints.py::test_route_decorator_custom_endpoint - Depre... FAILED tests/test_blueprints.py::test_route_decorator_custom_endpoint_with_dots FAILED tests/test_blueprints.py::test_endpoint_decorator - DeprecationWarning... FAILED tests/test_blueprints.py::test_template_filter_with_template - Depreca... FAILED tests/test_blueprints.py::test_template_filter_after_route_with_template FAILED tests/test_blueprints.py::test_add_template_filter_with_template - Dep... FAILED tests/test_blueprints.py::test_template_filter_with_name_and_template FAILED tests/test_blueprints.py::test_add_template_filter_with_name_and_template FAILED tests/test_blueprints.py::test_template_test_with_template - Deprecati... FAILED tests/test_blueprints.py::test_template_test_after_route_with_template FAILED tests/test_blueprints.py::test_add_template_test_with_template - Depre... FAILED tests/test_blueprints.py::test_template_test_with_name_and_template - ... FAILED tests/test_blueprints.py::test_add_template_test_with_name_and_template FAILED tests/test_blueprints.py::test_context_processing - DeprecationWarning... FAILED tests/test_blueprints.py::test_request_processing - DeprecationWarning... FAILED tests/test_blueprints.py::test_app_request_processing - DeprecationWar... FAILED tests/test_blueprints.py::test_app_url_processors - DeprecationWarning... FAILED tests/test_blueprints.py::test_nested_blueprint - DeprecationWarning: ... ================== 117 failed, 51 passed, 11 errors in 8.52s =================== + git checkout d8c37f43724cd9fb0870f77877b7c4c7e38a19e0 tests/test_basic.py tests/test_blueprints.py Updated 2 paths from a6c31469
+Raise error when blueprint name contains a dot
+This is required since every dot is now significant since blueprints can be nested. An error was already added for endpoint names in 1.0, but should have been added for this as well.
+
+=== Test Verification Results ===
+Tests Passed: False

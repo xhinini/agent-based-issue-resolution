@@ -1,0 +1,37 @@
+=== Original Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index 320d1a7..43a471d 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -147,7 +147,9 @@ def __getattr__(name):
+             )
+         else:  # Get the version from the _version.py setuptools_scm file.
+             __version__ = _version.version
+-        return __version__
++        version_parts = __version__.split('.')
++        version_info = tuple(int(part) if part.isdigit() else part for part in version_parts)
++        return __version__, version_info
+     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+=== Fixed Patch ===
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+index 320d1a7..43a471d 100644
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -147,7 +147,9 @@ def __getattr__(name):
+             )
+         else:  # Get the version from the _version.py setuptools_scm file.
+             __version__ = _version.version
+-        return __version__
++version_parts = __version__.split('.')
++version_info = tuple((int(part) if part.isdigit() else part for part in version_parts))
++return (__version__, version_info)
+     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+
+
+=== Test Verification Results ===
+Tests Passed: False

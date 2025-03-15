@@ -1,0 +1,57 @@
+=== Original Patch ===
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index d649dd02a9..365eeaf936 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -8,6 +8,7 @@
+ from sympy.core.symbol import symbols, Symbol
+ from sympy.utilities.iterables import numbered_symbols, sift, \
+         topological_sort, iterable
++from sympy.matrices.expressions.matexpr import MatrixSymbol
+ 
+ from . import cse_opts
+ 
+@@ -792,6 +793,10 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+     for e in exprs:
+         if isinstance(e, (Matrix, ImmutableMatrix)):
+             temp.append(Tuple(*e.flat()))
++        elif isinstance(e, MatrixSymbol):
++            temp.append(Tuple(*[e[i,j] for i in range(e.rows) for j in range(e.cols)]))
++        elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
++            temp.append(Tuple(*e.flat()))
+         elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
+             temp.append(Tuple(*e.todok().items()))
+         else:
+
+=== Fixed Patch ===
+diff --git a/sympy/simplify/cse_main.py b/sympy/simplify/cse_main.py
+index d649dd02a9..365eeaf936 100644
+--- a/sympy/simplify/cse_main.py
++++ b/sympy/simplify/cse_main.py
+@@ -8,6 +8,7 @@
+ from sympy.core.symbol import symbols, Symbol
+ from sympy.utilities.iterables import numbered_symbols, sift, \
+         topological_sort, iterable
++from sympy.matrices.expressions.matexpr import MatrixSymbol
+ 
+ from . import cse_opts
+ 
+@@ -792,6 +793,10 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+     for e in exprs:
+         if isinstance(e, (Matrix, ImmutableMatrix)):
+             temp.append(Tuple(*e.flat()))
++        elif isinstance(e, MatrixSymbol):
++temp.append(Tuple(*[e[i, j] for i in range(e.rows) for j in range(e.cols)]))
++        elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
++temp.append(Tuple(*e.flat()))
+         elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
+             temp.append(Tuple(*e.todok().items()))
+         else:
+
+=== Applied Patterns ===
+
+=== Original Error Messages ===
+ImportError: cannot import name 'dotprodsimp' from partially initialized module 'sympy.simplify.simplify' (most likely due to a circular import) (/testbed/sympy/simplify/simplify.py) + git checkout d822fcba181155b85ff2b29fe525adbafb22b448 sympy/simplify/tests/test_cse.py sympy/utilities/tests/test_codegen.py Updated 2 paths from 7618ee7ffe
+
+=== Test Verification Results ===
+Tests Passed: False
