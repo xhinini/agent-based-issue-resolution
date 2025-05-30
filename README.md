@@ -125,6 +125,7 @@ save_analysis(analysis, "analysis_results")
 ├── core.py                      # Core framework components
 ├── advanced_analysis.py         # Advanced code analysis utilities
 ├── patch_ana.py                 # Patch analysis script
+├── Examples.pdf                 # Examples we listed for each category
 ├── model_failed_cases/          # Directory containing case files
 └── patch_analysis_results/      # Directory for analysis results
 ```
