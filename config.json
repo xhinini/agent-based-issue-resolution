@@ -1,0 +1,74 @@
+{
+  "experiment_config": {
+    "b1_iaa": {
+      "model1": "gpt-4o",
+      "model2": "gpt-4o-mini",
+      "num_cases": 20,
+      "min_agreement_threshold": 0.7
+    },
+    "b2_ablation": {
+      "modes": ["static_only", "llm_only", "combined"],
+      "num_cases": 10,
+      "timeout_seconds": 300
+    },
+    "b3_profiling": {
+      "num_cases": 5,
+      "repeat_runs": 3,
+      "modules_to_profile": [
+        "parse",
+        "cfg",
+        "static_analysis",
+        "llm_extraction",
+        "llm_inference",
+        "llm_rewriting",
+        "mypy"
+      ]
+    },
+    "b4_format_repair": {
+      "num_patches": 50,
+      "strategies": [
+        "normalize_headers",
+        "fix_line_counts",
+        "llm_correction",
+        "reconstruct_unified",
+        "git_apply_check"
+      ]
+    },
+    "verified_subset": {
+      "min_confidence": 0.5,
+      "type_categories": [
+        "missing_annotation",
+        "incorrect_annotation",
+        "attribute_error",
+        "import_type",
+        "generic_type"
+      ]
+    }
+  },
+  "llm_config": {
+    "default_model": "gpt-4o-mini",
+    "fallback_model": "gpt-4o",
+    "temperature": 0.3,
+    "max_tokens": 3000,
+    "retry_attempts": 3,
+    "retry_delay_seconds": 2
+  },
+  "patch_extraction": {
+    "validation_enabled": true,
+    "checksum_verification": true,
+    "multiple_strategies": true,
+    "fallback_to_llm": true
+  },
+  "performance": {
+    "max_retries": 3,
+    "context_length_limit": 5000,
+    "cfg_cache_size": 100,
+    "parallel_analysis": false
+  },
+  "output": {
+    "base_directory": "experiment_results",
+    "generate_latex_tables": true,
+    "generate_plots": false,
+    "save_intermediate_results": true
+  }
+}

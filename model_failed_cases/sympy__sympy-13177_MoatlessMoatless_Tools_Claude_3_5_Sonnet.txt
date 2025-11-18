@@ -1,0 +1,69 @@
+# Instance ID: sympy__sympy-13177
+# Model: AutoCoderOver v20240620
+
+### Original Case Description and Gold Patch
+# INSTANCE_ID: sympy__sympy-13177
+
+### ISSUE TYPE
+bug fix
+
+### DESCRIPTION
+Mod(x**2, x) is not (always) 0
+When the base is not an integer, `x**2 % x` is not 0. The base is not tested to be an integer in Mod's eval logic:
+
+```
+if (p == q or p == -q or
+        p.is_Pow and p.exp.is_Integer and p.base == q or
+        p.is_integer and q == 1):
+    return S.Zero
+```
+
+so
+
+```
+>>> Mod(x**2, x)
+0
+```
+but
+```
+>>> x = S(1.5)
+>>> Mod(x**2, x)
+0.75
+```
+
+
+### GOLD_PATCH
+diff --git a/sympy/core/mod.py b/sympy/core/mod.py
+--- a/sympy/core/mod.py
++++ b/sympy/core/mod.py
+@@ -39,7 +39,8 @@ def doit(p, q):
+             if p.is_infinite or q.is_infinite or p is nan or q is nan:
+                 return nan
+             if (p == q or p == -q or
+-                    p.is_Pow and p.exp.is_Integer and p.base == q or
++                    p.is_Pow and p.exp.is_integer and p.base == q and q.is_integer
++                    and p.exp.is_positive or
+                     p.is_integer and q == 1):
+                 return S.Zero
+ 
+
+
+### MODEL_OUTPUTS
+
+
+
+
+### Model Generated Patch
+diff --git a/sympy/core/mod.py b/sympy/core/mod.py
+index 11c800704b..f7f48a5297 100644
+--- a/sympy/core/mod.py
++++ b/sympy/core/mod.py
+@@ -39,7 +39,7 @@ def doit(p, q):
+             if p.is_infinite or q.is_infinite or p is nan or q is nan:
+                 return nan
+             if (p == q or p == -q or
+-                    p.is_Pow and p.exp.is_Integer and p.base == q or
++                    p.is_Pow and p.exp.is_Integer and p.base == q and p.base.is_integer or
+                     p.is_integer and q == 1):
+                 return S.Zero
+
