@@ -10,9 +10,6 @@ Type & Data-Shape ("Class 1") failures can be repaired automatically and evaluat
 - **Primary use case**: take a failing SWE-bench prediction, rerun it through Full PAGENT, and collect
   the improved patch plus telemetry that explains which variables/types were rewritten.
 
-**Author**: Haoran Xue (hrx00@yorku.ca, [https://tracyxue.web.app/](https://tracyxue.web.app/))
-
-**Paper**: [Type-Guided Patch Agents for SWE-bench (ArXiv: 2506.17772)](https://arxiv.org/abs/2506.17772)
 
 ---
 
